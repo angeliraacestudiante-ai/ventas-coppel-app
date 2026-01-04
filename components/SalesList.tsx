@@ -1,0 +1,226 @@
+import React, { useState } from 'react';
+import { Search, Image as ImageIcon, Calendar, User, Tag, Trash2, Eye, DollarSign, TrendingUp, Smartphone, MoreHorizontal } from 'lucide-react';
+import { Sale, Brand } from '../types';
+import { BRAND_CONFIGS } from '../constants';
+
+interface SalesListProps {
+  sales: Sale[];
+  onDelete: (id: string) => void;
+  onAdd: () => void;
+}
+
+const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterBrand, setFilterBrand] = useState<Brand | 'ALL'>('ALL');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // --- TODAY'S STATS CALCULATIONS (LOCAL TIME FIXED) ---
+  const todayDateObj = new Date();
+  // Construct YYYY-MM-DD in local time manually to match form input values
+  const todayStr = todayDateObj.getFullYear() + '-' + 
+                   String(todayDateObj.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(todayDateObj.getDate()).padStart(2, '0');
+
+  const todaysSales = sales.filter(s => s.date === todayStr);
+  const todayRevenue = todaysSales.reduce((sum, s) => sum + s.price, 0);
+  const todayCount = todaysSales.length;
+  const todayNet = todayRevenue / 1.16;
+
+  // --- FILTER LOGIC ---
+  const filteredSales = sales.filter(sale => {
+    const matchesSearch = 
+      sale.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sale.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesBrand = filterBrand === 'ALL' || sale.brand === filterBrand;
+    return matchesSearch && matchesBrand;
+  });
+
+  return (
+    <div className="space-y-8">
+      
+      {/* --- TODAY'S PERFORMANCE HERO CARD --- */}
+      <div className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-xl border border-slate-800">
+        {/* Decorative Background Elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-20 -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-600 rounded-full blur-[100px] opacity-10 translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+
+        <div className="relative z-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+             <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <span className="bg-blue-600 w-2 h-6 rounded-full inline-block"></span>
+                  Resumen del Día
+                </h2>
+                <p className="text-slate-400 text-sm mt-1 pl-4">
+                  {todayDateObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+             </div>
+             <div className="bg-slate-800/50 backdrop-blur-sm px-4 py-1.5 rounded-full border border-slate-700 text-xs font-medium text-slate-300">
+                Ventas en tiempo real
+             </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:divide-x divide-slate-800/80">
+             
+             {/* Stat 1: Count */}
+             <div className="flex items-center gap-4 px-2">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 text-blue-400">
+                   <Smartphone className="w-6 h-6" />
+                </div>
+                <div>
+                   <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">Equipos Vendidos</p>
+                   <p className="text-3xl font-black text-white">{todayCount}</p>
+                </div>
+             </div>
+
+             {/* Stat 2: Revenue */}
+             <div className="flex items-center gap-4 px-2 md:pl-6">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400">
+                   <DollarSign className="w-6 h-6" />
+                </div>
+                <div>
+                   <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">Venta Total</p>
+                   <p className="text-3xl font-black text-white">${todayRevenue.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                </div>
+             </div>
+
+             {/* Stat 3: Net */}
+             <div className="flex items-center gap-4 px-2 md:pl-6">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400">
+                   <TrendingUp className="w-6 h-6" />
+                </div>
+                <div>
+                   <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">Sin IVA (Base)</p>
+                   <p className="text-3xl font-black text-white">${todayNet.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                </div>
+             </div>
+
+          </div>
+        </div>
+      </div>
+
+      {/* --- LIST HEADER & CONTROLS --- */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-800">Transacciones Recientes</h3>
+          <span className="text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{filteredSales.length} registros</span>
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-4 top-3 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar cliente o folio..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 text-sm font-medium transition-all"
+            />
+          </div>
+          
+          <div className="w-full md:w-auto pr-2">
+            <select
+              value={filterBrand}
+              onChange={(e) => setFilterBrand(e.target.value as Brand | 'ALL')}
+              className="w-full md:w-auto px-4 py-2.5 bg-slate-50 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 text-sm font-medium text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors"
+            >
+              <option value="ALL">Todas las Marcas</option>
+              {Object.values(Brand).map(brand => (
+                <option key={brand} value={brand}>{BRAND_CONFIGS[brand].label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* --- LIST --- */}
+      <div className="grid grid-cols-1 gap-4">
+        {filteredSales.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-slate-200">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+               <Search className="w-8 h-8 text-slate-300" />
+            </div>
+            <h3 className="text-slate-800 font-bold mb-1">No se encontraron ventas</h3>
+            <p className="text-slate-500 text-sm">Intenta ajustar los filtros de búsqueda.</p>
+          </div>
+        ) : (
+          filteredSales.map((sale) => (
+            <div key={sale.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md hover:border-blue-100 transition-all group">
+              <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
+                {/* Left: Main Info */}
+                <div className="flex-1 space-y-3 w-full">
+                  <div className="flex items-center justify-between md:justify-start gap-3">
+                    <span 
+                      className={`px-3 py-1 rounded-full text-[10px] font-bold text-white shadow-sm tracking-wide uppercase ${BRAND_CONFIGS[sale.brand].colorClass}`}
+                      style={BRAND_CONFIGS[sale.brand].colorClass.includes('text-black') ? { color: 'black' } : {}}
+                    >
+                      {BRAND_CONFIGS[sale.brand].label}
+                    </span>
+                    <span className="text-slate-400 text-xs font-mono font-medium tracking-wide">#{sale.invoiceNumber}</span>
+                  </div>
+                  
+                  <div>
+                     <h3 className="font-bold text-slate-800 text-lg leading-tight mb-1">{sale.customerName}</h3>
+                     <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {sale.date}</span>
+                        <span className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded text-slate-600">
+                           <Tag className="w-3 h-3" /> ${sale.price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        </span>
+                     </div>
+                  </div>
+                </div>
+
+                {/* Right: Actions & Ticket */}
+                <div className="flex items-center justify-end w-full md:w-auto gap-3 pt-3 md:pt-0 border-t md:border-t-0 border-slate-50 mt-2 md:mt-0">
+                  {sale.ticketImage ? (
+                     <button 
+                       onClick={() => setSelectedImage(sale.ticketImage!)}
+                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
+                     >
+                       <Eye className="w-4 h-4" />
+                       Ver Ticket
+                     </button>
+                  ) : (
+                    <span className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 bg-slate-50 select-none">
+                      <ImageIcon className="w-4 h-4" />
+                      Sin foto
+                    </span>
+                  )}
+
+                  <div className="w-px h-8 bg-slate-100 mx-1 hidden md:block"></div>
+
+                  <button
+                    onClick={() => onDelete(sale.id)}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Eliminar venta"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setSelectedImage(null)}>
+          <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={e => e.stopPropagation()}>
+            <img src={selectedImage} alt="Ticket Full" className="w-full h-full object-contain rounded-xl shadow-2xl" />
+            <button 
+              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-md transition-colors"
+              onClick={() => setSelectedImage(null)}
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SalesList;

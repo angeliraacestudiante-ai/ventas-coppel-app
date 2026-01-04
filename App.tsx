@@ -1,0 +1,660 @@
+import React, { useState, useEffect } from 'react';
+import { Smartphone, LayoutList, BarChart3, Menu, X, CalendarCheck, Plus, LogOut, User as UserIcon, ChevronRight, Loader2, RefreshCcw, Database, AlertTriangle, Copy, Check, Shield } from 'lucide-react';
+import SalesForm from './components/SalesForm';
+import SalesList from './components/SalesList';
+import Dashboard from './components/Dashboard';
+import DailyClosings from './components/DailyClosings';
+import AuthForm from './components/AuthForm';
+import { Sale, DailyClose, Brand, UserProfile } from './types';
+import { supabase } from './services/supabaseClient';
+
+const App: React.FC = () => {
+  // Auth State
+  const [session, setSession] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // App State
+  const [currentView, setCurrentView] = useState<'form' | 'list' | 'dashboard' | 'closings'>('list');
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [closings, setClosings] = useState<DailyClose[]>([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // States for Error Handling & Setup
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isSetupNeeded, setIsSetupNeeded] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  // SQL Script Update: Adds Profiles table and stricter policies
+  const REQUIRED_SQL = `
+-- 1. ESTRUCTURA BÁSICA
+create table if not exists public.sales (
+  id uuid default gen_random_uuid() primary key,
+  invoice_number text not null,
+  customer_name text not null,
+  price numeric not null,
+  brand text not null,
+  date text not null,
+  ticket_image text,
+  created_by uuid references auth.users(id),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create table if not exists public.daily_closings (
+  id text primary key,
+  date text not null unique,
+  total_sales numeric not null,
+  total_revenue numeric not null,
+  closed_at text not null,
+  top_brand text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 2. SISTEMA DE USUARIOS Y ROLES
+create table if not exists public.profiles (
+  id uuid references auth.users on delete cascade not null primary key,
+  email text,
+  role text default 'seller', -- 'admin' or 'seller'
+  full_name text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Trigger para crear perfil automáticamente al registrarse
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, role, full_name)
+  values (new.id, new.email, 'seller', new.raw_user_meta_data->>'full_name');
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Eliminar trigger si existe para recrearlo (evita duplicados en re-runs)
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- 3. SEGURIDAD (RLS)
+alter table public.sales enable row level security;
+alter table public.daily_closings enable row level security;
+alter table public.profiles enable row level security;
+
+-- Limpiar políticas viejas
+drop policy if exists "Public read sales" on public.sales;
+drop policy if exists "Public insert sales" on public.sales;
+drop policy if exists "Public delete sales" on public.sales;
+drop policy if exists "Admins can delete sales" on public.sales;
+drop policy if exists "Public read closings" on public.daily_closings;
+
+-- Nuevas Políticas de Ventas
+create policy "Authenticated users can view sales" on public.sales for select to authenticated using (true);
+create policy "Authenticated users can insert sales" on public.sales for insert to authenticated with check (auth.uid() = created_by);
+
+-- Permitir borrar si eres el creador O si eres admin
+create policy "Users can delete own sales" on public.sales for delete to authenticated using (
+  auth.uid() = created_by OR 
+  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+);
+
+-- Nuevas Políticas de Cierres
+create policy "Authenticated users can view closings" on public.daily_closings for select to authenticated using (true);
+create policy "Authenticated users can insert closings" on public.daily_closings for insert to authenticated with check (true);
+create policy "Authenticated users can update closings" on public.daily_closings for update to authenticated using (true);
+
+-- Políticas de Perfiles
+create policy "Users can view own profile" on public.profiles for select to authenticated using (auth.uid() = id);
+-- Admins pueden ver todos los perfiles
+create policy "Admins can view all profiles" on public.profiles for select to authenticated using (
+  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+);
+
+-- 4. ALMACENAMIENTO (STORAGE)
+-- Insertar bucket si no existe
+insert into storage.buckets (id, name, public)
+values ('receipts', 'receipts', true)
+on conflict (id) do nothing;
+
+-- Políticas de Storage (Eliminar anteriores para evitar errores)
+drop policy if exists "Public Access Receipts" on storage.objects;
+drop policy if exists "Auth Upload Receipts" on storage.objects;
+
+-- Permitir ver imágenes a cualquiera (para que se vean en la app)
+create policy "Public Access Receipts" on storage.objects for select
+using ( bucket_id = 'receipts' );
+
+-- Permitir subir imágenes solo a usuarios autenticados
+create policy "Auth Upload Receipts" on storage.objects for insert
+with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
+`;
+
+  // --- AUTH CHECK ---
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) fetchUserProfile(session.user.id);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+         fetchUserProfile(session.user.id);
+      } else {
+         setUserProfile(null);
+         setSales([]); // Clear sensitive data on logout
+         setClosings([]);
+      }
+      setAuthLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (data) {
+        setUserProfile(data as UserProfile);
+      } else if (error && error.code === 'PGRST116') {
+         console.warn("Profile not found, waiting for trigger or manual creation");
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    // Limpiamos el rastreador de fecha al salir manualmente
+    localStorage.removeItem('sales_app_session_date');
+    await supabase.auth.signOut();
+  };
+
+  // --- AUTOMATIC MIDNIGHT LOGOUT LOGIC ---
+  useEffect(() => {
+    if (!session) return;
+
+    const SESSION_DATE_KEY = 'sales_app_session_date';
+
+    const checkMidnight = () => {
+      const now = new Date();
+      // Obtenemos la fecha actual como string único (ej: "Mon Oct 25 2023")
+      const currentDateStr = now.toDateString(); 
+      const storedDate = localStorage.getItem(SESSION_DATE_KEY);
+
+      if (!storedDate) {
+        // Si no hay fecha guardada (primer login del día o recarga), guardamos la actual
+        localStorage.setItem(SESSION_DATE_KEY, currentDateStr);
+      } else if (storedDate !== currentDateStr) {
+        // Si la fecha guardada es diferente a la actual, significa que cambió el día (medianoche)
+        // Forzamos el cierre de sesión
+        console.log("Cierre de sesión automático: Cambio de día detectado.");
+        handleLogout();
+      }
+    };
+
+    // Revisar inmediatamente al cargar
+    checkMidnight();
+
+    // Configurar intervalo para revisar cada minuto (60,000 ms)
+    const intervalId = setInterval(checkMidnight, 60000);
+
+    return () => clearInterval(intervalId);
+  }, [session]);
+
+  // Helper para mostrar errores legibles
+  const formatError = (error: any): string => {
+    if (typeof error === 'string') return error;
+    if (error?.message) return error.message;
+    if (error?.error_description) return error.error_description;
+    return JSON.stringify(error);
+  };
+
+  // --- FETCH DATA FROM SUPABASE ---
+  const fetchData = async () => {
+    if (!session) return;
+    
+    setIsLoading(true);
+    setConnectionError(null);
+    setIsSetupNeeded(false);
+
+    try {
+      // 1. Fetch Sales
+      const { data: salesData, error: salesError } = await supabase
+        .from('sales')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (salesError) {
+        if (salesError.code === '42P01') {
+          setIsSetupNeeded(true);
+          throw new Error("Tablas no encontradas en Supabase.");
+        }
+        throw salesError;
+      }
+
+      const formattedSales: Sale[] = (salesData || []).map((row: any) => ({
+        id: row.id,
+        invoiceNumber: row.invoice_number,
+        customerName: row.customer_name,
+        price: row.price,
+        brand: row.brand as Brand,
+        date: row.date,
+        ticketImage: row.ticket_image,
+        createdBy: row.created_by
+      }));
+
+      setSales(formattedSales);
+
+      // 2. Fetch Closings
+      const { data: closingsData, error: closingsError } = await supabase
+        .from('daily_closings')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (closingsError) {
+        if (closingsError.code === '42P01') {
+           setIsSetupNeeded(true);
+           throw new Error("Tabla 'daily_closings' no encontrada.");
+        }
+        throw closingsError;
+      }
+
+      const formattedClosings: DailyClose[] = (closingsData || []).map((row: any) => ({
+        id: row.id,
+        date: row.date,
+        totalSales: row.total_sales,
+        totalRevenue: row.total_revenue,
+        closedAt: row.closed_at,
+        topBrand: row.top_brand
+      }));
+
+      setClosings(formattedClosings);
+
+    } catch (error: any) {
+      console.error('Error fetching data from Supabase:', error);
+      if (!isSetupNeeded) {
+        setConnectionError(formatError(error));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (session) {
+      fetchData();
+    }
+  }, [session]);
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(REQUIRED_SQL);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2000);
+  };
+
+  // --- CRUD OPERATIONS ---
+
+  const handleAddSale = async (newSaleData: Omit<Sale, 'id'>) => {
+    if (!session) return;
+    setIsLoading(true);
+    try {
+      const dbPayload = {
+        invoice_number: newSaleData.invoiceNumber,
+        customer_name: newSaleData.customerName,
+        price: newSaleData.price,
+        brand: newSaleData.brand,
+        date: newSaleData.date,
+        ticket_image: newSaleData.ticketImage || null,
+        created_by: session.user.id // Link to user
+      };
+
+      const { data, error } = await supabase
+        .from('sales')
+        .insert([dbPayload])
+        .select();
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const row = data[0];
+        const newSale: Sale = {
+          id: row.id,
+          invoiceNumber: row.invoice_number,
+          customerName: row.customer_name,
+          price: row.price,
+          brand: row.brand as Brand,
+          date: row.date,
+          ticketImage: row.ticket_image,
+          createdBy: row.created_by
+        };
+        setSales(prev => [newSale, ...prev]);
+        setCurrentView('list');
+      }
+    } catch (error: any) {
+      console.error('Error saving sale:', error);
+      alert(`Error al guardar la venta: ${formatError(error)}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteSale = async (id: string) => {
+    // Permission Check: Allow if user is logged in (Backend will enforce ownership/admin via RLS)
+    if (!session) return;
+
+    if (!window.confirm("¿Estás seguro de que quieres eliminar este registro?")) return;
+
+    try {
+      const { error } = await supabase
+        .from('sales')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Actualizar estado local eliminando el item
+      setSales(prev => prev.filter(s => s.id !== id));
+    } catch (error: any) {
+      console.error('Error deleting sale:', error);
+      alert(`No se pudo eliminar el registro. ${error.code === '42501' ? 'No tienes permiso para borrar este registro.' : formatError(error)}`);
+    }
+  };
+
+  const handleCloseDay = async (newClose: DailyClose) => {
+    if (!session) return;
+    try {
+      const exists = closings.find(c => c.date === newClose.date);
+      if (exists) {
+        if (!window.confirm("Ya existe un cierre para esta fecha. ¿Deseas actualizarlo con los datos actuales?")) {
+          return;
+        }
+      }
+
+      const dbPayload = {
+        id: `close-${newClose.date}`,
+        date: newClose.date,
+        total_sales: newClose.totalSales,
+        total_revenue: newClose.totalRevenue,
+        closed_at: newClose.closedAt,
+        top_brand: newClose.topBrand
+      };
+
+      const { error } = await supabase
+        .from('daily_closings')
+        .upsert(dbPayload, { onConflict: 'id' });
+
+      if (error) throw error;
+
+      setClosings(prev => {
+        // Remove existing if any, then add new one
+        const filtered = prev.filter(c => c.date !== newClose.date);
+        return [newClose, ...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      });
+      
+      alert("Cierre de día actualizado correctamente.");
+
+    } catch (error: any) {
+      console.error('Error closing day:', error);
+      alert(`Error al realizar el corte del día: ${formatError(error)}`);
+    }
+  };
+
+  const NavButton = ({ view, icon: Icon, label }: { view: 'form' | 'list' | 'dashboard' | 'closings', icon: any, label: string }) => {
+    const isActive = currentView === view;
+    return (
+      <button
+        onClick={() => {
+          setCurrentView(view);
+          setIsMobileMenuOpen(false);
+        }}
+        className={`
+          relative flex items-center gap-3 px-4 py-3.5 rounded-xl w-full text-left transition-all duration-200 group
+          ${isActive 
+            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' 
+            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+          }
+        `}
+      >
+        <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'}`} />
+        <span className="font-medium text-sm tracking-wide">{label}</span>
+        {isActive && <ChevronRight className="w-4 h-4 ml-auto opacity-50" />}
+      </button>
+    );
+  };
+
+  // --- RENDER: LOADING ---
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // --- RENDER: AUTH FORM ---
+  if (!session) {
+    return <AuthForm />;
+  }
+
+  // --- RENDER: SETUP / ERROR SCREEN ---
+  if (isSetupNeeded || (connectionError && sales.length === 0 && closings.length === 0)) {
+     return (
+        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4 font-sans">
+           <div className="max-w-2xl w-full space-y-8">
+              <div className="text-center space-y-4">
+                 <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-blue-500/30">
+                    <Database className="w-8 h-8 text-white" />
+                 </div>
+                 <h1 className="text-3xl font-bold">Actualización Necesaria</h1>
+                 <p className="text-slate-400 max-w-md mx-auto">
+                    {connectionError 
+                      ? "Ocurrió un error al conectar con Supabase." 
+                      : "Para habilitar el sistema de usuarios y roles, necesitamos actualizar la base de datos."}
+                 </p>
+                 {connectionError && (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-200 p-3 rounded-lg text-sm font-mono break-all inline-block max-w-full">
+                       Error: {connectionError}
+                    </div>
+                 )}
+              </div>
+
+              <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
+                 <div className="bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-mono text-slate-400">
+                       <Database className="w-4 h-4" />
+                       <span>SQL Update Script</span>
+                    </div>
+                    <button 
+                       onClick={copyToClipboard}
+                       className="flex items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg transition-colors text-white"
+                    >
+                       {copiedSql ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                       {copiedSql ? "¡Copiado!" : "Copiar SQL"}
+                    </button>
+                 </div>
+                 <div className="p-6 overflow-x-auto">
+                    <pre className="text-xs md:text-sm font-mono text-emerald-400 whitespace-pre-wrap leading-relaxed">
+                       {REQUIRED_SQL}
+                    </pre>
+                 </div>
+                 <div className="bg-slate-800 p-6 border-t border-slate-700">
+                    <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                       <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                       Instrucciones:
+                    </h3>
+                    <ol className="text-sm text-slate-400 space-y-2 list-decimal list-inside ml-2">
+                       <li>Ve al Dashboard de tu proyecto en <a href="https://supabase.com/dashboard" target="_blank" className="text-blue-400 hover:underline" rel="noreferrer">Supabase</a>.</li>
+                       <li>Abre el <strong>SQL Editor</strong> en el menú lateral.</li>
+                       <li>Haz clic en <strong>New Query</strong>.</li>
+                       <li>Pega el código de arriba y haz clic en <strong>RUN</strong>.</li>
+                       <li>Vuelve aquí y presiona "Reintentar Conexión".</li>
+                    </ol>
+                    <button 
+                       onClick={fetchData}
+                       className="mt-6 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+                    >
+                       <RefreshCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                       Reintentar Conexión
+                    </button>
+                 </div>
+              </div>
+           </div>
+        </div>
+     );
+  }
+
+  // --- MAIN APP RENDER ---
+  return (
+    <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
+      
+      {/* Mobile Header */}
+      <div className="md:hidden bg-slate-900 text-white p-4 flex items-center justify-between shadow-md sticky top-0 z-20">
+        <div className="flex items-center gap-2 font-bold text-lg">
+           <Smartphone className="w-6 h-6 text-blue-400" />
+           <span>Ventas Telcel</span>
+        </div>
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-300 hover:text-white">
+          {isMobileMenuOpen ? <X /> : <Menu />}
+        </button>
+      </div>
+
+      {/* Professional Dark Sidebar */}
+      <nav className={`
+        fixed inset-0 z-50 bg-[#0f172a] md:static md:w-72 md:h-screen flex flex-col transition-transform duration-300 shadow-2xl
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+        {/* Sidebar Header */}
+        <div className="p-6 md:p-8 flex items-center justify-between">
+           <div className="flex flex-col gap-2 w-full">
+              {/* Restored Text Logo */}
+              <div className="flex items-center gap-3 px-2">
+                 <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/50">
+                   <Smartphone className="w-6 h-6 text-white" />
+                 </div>
+                 <span className="text-xl font-bold text-white tracking-tight">Ventas Telcel</span>
+              </div>
+              <p className="text-slate-500 text-[10px] font-bold tracking-widest text-center mt-4">PANEL DE CONTROL</p>
+           </div>
+           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-500"><X /></button>
+        </div>
+
+        {/* Navigation Items */}
+        <div className="flex-1 px-4 space-y-2 overflow-y-auto">
+          <div className="text-[10px] font-bold text-slate-500 px-4 py-2 uppercase tracking-wider">Menú Principal</div>
+          <NavButton view="list" icon={LayoutList} label="Registro de Ventas" />
+          <NavButton view="dashboard" icon={BarChart3} label="Estadísticas" />
+          <NavButton view="closings" icon={CalendarCheck} label="Cierre de Venta" />
+        </div>
+
+        {/* User Profile Section */}
+        <div className="p-4 border-t border-slate-800">
+           <div className="bg-slate-800/50 rounded-xl p-3 flex items-center gap-3 border border-slate-700/50 hover:border-slate-600 transition-colors group">
+              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                <UserIcon className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-medium truncate">
+                   {userProfile?.email?.split('@')[0] || 'Usuario'}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                   <Shield className={`w-3 h-3 ${userProfile?.role === 'admin' ? 'text-yellow-400' : 'text-slate-500'}`} />
+                   <p className="text-slate-500 text-[10px] uppercase font-bold truncate">
+                     {userProfile?.role === 'admin' ? 'Administrador' : 'Vendedor'}
+                   </p>
+                </div>
+              </div>
+              <button 
+                 onClick={handleLogout}
+                 className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+                 title="Cerrar Sesión"
+              >
+                 <LogOut className="w-4 h-4" />
+              </button>
+           </div>
+           <div className="mt-4 text-center">
+             <p className="text-[10px] text-slate-600">v3.3 (Telcel Ed.)</p>
+           </div>
+        </div>
+      </nav>
+
+      {/* Main Content Area */}
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen scroll-smooth bg-slate-100 relative">
+        <div className="max-w-6xl mx-auto space-y-6">
+          
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+                {currentView === 'list' && 'Historial de Ventas'}
+                {currentView === 'form' && 'Nuevo Registro'}
+                {currentView === 'dashboard' && 'Panel de Rendimiento'}
+                {currentView === 'closings' && 'Cierre Diario'}
+                {isLoading && <Loader2 className="w-6 h-6 animate-spin text-blue-600" />}
+              </h1>
+              <p className="text-slate-500 mt-1 font-medium">
+                {currentView === 'list' && 'Gestiona y consulta el historial de transacciones en la nube.'}
+                {currentView === 'form' && 'Completa los detalles de la venta del dispositivo.'}
+                {currentView === 'dashboard' && 'Visualiza métricas clave y cumplimiento de metas.'}
+                {currentView === 'closings' && 'Realiza cortes y revisa ingresos acumulados.'}
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+               {/* Refresh button removed per user request */}
+
+               {currentView === 'list' && (
+                <button
+                  onClick={() => setCurrentView('form')}
+                  className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5"
+                >
+                  <Plus className="w-5 h-5" />
+                  Nueva Venta
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="fade-in">
+            {currentView === 'list' && (
+              <SalesList 
+                sales={sales} 
+                onDelete={handleDeleteSale} 
+                onAdd={() => setCurrentView('form')}
+              />
+            )}
+            {currentView === 'form' && (
+              <SalesForm onAddSale={handleAddSale} onCancel={() => setCurrentView('list')} />
+            )}
+            {currentView === 'dashboard' && (
+              <Dashboard sales={sales} />
+            )}
+            {currentView === 'closings' && (
+              <DailyClosings sales={sales} closings={closings} onCloseDay={handleCloseDay} />
+            )}
+          </div>
+
+        </div>
+      </main>
+      
+      {/* Floating Action Button (Mobile Only for List View) */}
+      {currentView === 'list' && (
+        <button
+          onClick={() => setCurrentView('form')}
+          className="md:hidden fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-2xl shadow-blue-500/40 hover:bg-blue-700 transition-transform active:scale-95 z-30"
+          title="Nueva Venta"
+        >
+          <Plus className="w-7 h-7" />
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default App;
