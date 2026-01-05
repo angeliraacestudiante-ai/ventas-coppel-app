@@ -3,6 +3,7 @@ import { Plus, Camera, Loader2, Save, X, Sparkles, Trash2, Smartphone, Edit2, Ey
 import { Brand, Sale } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 import { analyzeTicketImage } from '../services/geminiService';
+import { supabase } from '../services/supabaseClient';
 import { uploadImageToDriveScript, deleteImageFromDriveScript } from '../services/googleAppsScriptService'; // Import delete service
 
 interface SalesFormProps {
@@ -255,6 +256,40 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
     }
 
     setIsSubmitting(true);
+
+    // --- DUPLICATE CHECK ---
+    try {
+      // Check if invoice exists (exclude current ID if editing)
+      let query = supabase.from('sales').select('id, customer_name').eq('invoice_number', commonData.invoiceNumber).limit(1);
+
+      if (initialData) {
+        query = query.neq('id', initialData.id);
+      }
+
+      const { data: existing, error: checkError } = await query;
+
+      if (checkError) throw checkError;
+
+      if (existing && existing.length > 0) {
+        const confirm = window.confirm(
+          `⚠️ ATENCIÓN: La factura #${commonData.invoiceNumber} ya existe (Cliente: ${existing[0].customer_name}).\n\n` +
+          `¿Es parte de una venta múltiple con varios equipos?\n` +
+          `[Aceptar] SÍ, agregar a la factura existente.\n` +
+          `[Cancelar] NO, corregir el número de factura.`
+        );
+
+        if (!confirm) {
+          setIsSubmitting(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Could not verify duplicates:", err);
+      // Proceed cautiously even if check fails, or stop?
+      // Let's proceed to avoid blocking offline usage (though Supabase client handles offline somewhat? No, standard client doesn't).
+      // If offline, this check might fail. We should probably let it pass or warn.
+    }
+    // -----------------------
     let finalImageUrl: string | undefined = ticketImage || undefined;
 
     // Upload Image logic
