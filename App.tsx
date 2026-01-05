@@ -313,6 +313,44 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
   useEffect(() => {
     if (session) {
       fetchData();
+
+      // Realtime Subscription
+      const channel = supabase
+        .channel('db_changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'sales' },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              const newSale: Sale = {
+                id: payload.new.id,
+                invoiceNumber: payload.new.invoice_number,
+                customerName: payload.new.customer_name,
+                price: payload.new.price,
+                brand: payload.new.brand as Brand,
+                date: payload.new.date,
+                ticketImage: payload.new.ticket_image,
+                createdBy: payload.new.created_by
+              };
+              setSales(prev => [newSale, ...prev]);
+            } else if (payload.eventType === 'DELETE') {
+              setSales(prev => prev.filter(s => s.id !== payload.old.id));
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'daily_closings' },
+          () => {
+            // For closings, we just re-fetch to keep it simple and accurate
+            fetchData();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [session]);
 
