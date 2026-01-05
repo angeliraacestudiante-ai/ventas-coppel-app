@@ -7,19 +7,24 @@ interface SalesListProps {
   sales: Sale[];
   onDelete: (id: string) => void;
   onAdd: () => void;
+  role?: string;
 }
 
-const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd }) => {
+const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd, role }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBrand, setFilterBrand] = useState<Brand | 'ALL'>('ALL');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  // Date Filtering State
+  const [viewMode, setViewMode] = useState<'today' | 'all' | 'custom'>('today');
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+
   // --- TODAY'S STATS CALCULATIONS (LOCAL TIME FIXED) ---
   const todayDateObj = new Date();
   // Construct YYYY-MM-DD in local time manually to match form input values
-  const todayStr = todayDateObj.getFullYear() + '-' + 
-                   String(todayDateObj.getMonth() + 1).padStart(2, '0') + '-' + 
-                   String(todayDateObj.getDate()).padStart(2, '0');
+  const todayStr = todayDateObj.getFullYear() + '-' +
+    String(todayDateObj.getMonth() + 1).padStart(2, '0') + '-' +
+    String(todayDateObj.getDate()).padStart(2, '0');
 
   const todaysSales = sales.filter(s => s.date === todayStr);
   const todayRevenue = todaysSales.reduce((sum, s) => sum + s.price, 0);
@@ -28,16 +33,30 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd }) => {
 
   // --- FILTER LOGIC ---
   const filteredSales = sales.filter(sale => {
-    const matchesSearch = 
+    // 1. Text Search
+    const matchesSearch =
       sale.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sale.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // 2. Brand Filter
     const matchesBrand = filterBrand === 'ALL' || sale.brand === filterBrand;
-    return matchesSearch && matchesBrand;
+
+    // 3. Date Filter
+    let matchesDate = true;
+    if (viewMode === 'today') {
+      matchesDate = sale.date === todayStr;
+    } else if (viewMode === 'custom') {
+      if (dateRange.start && sale.date < dateRange.start) matchesDate = false;
+      if (dateRange.end && sale.date > dateRange.end) matchesDate = false;
+    }
+    // if 'all', matchesDate remains true
+
+    return matchesSearch && matchesBrand && matchesDate;
   });
 
   return (
     <div className="space-y-8">
-      
+
       {/* --- TODAY'S PERFORMANCE HERO CARD --- */}
       <div className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-xl border border-slate-800">
         {/* Decorative Background Elements */}
@@ -46,54 +65,54 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd }) => {
 
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-             <div>
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <span className="bg-blue-600 w-2 h-6 rounded-full inline-block"></span>
-                  Resumen del Día
-                </h2>
-                <p className="text-slate-400 text-sm mt-1 pl-4">
-                  {todayDateObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
-             </div>
-             <div className="bg-slate-800/50 backdrop-blur-sm px-4 py-1.5 rounded-full border border-slate-700 text-xs font-medium text-slate-300">
-                Ventas en tiempo real
-             </div>
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <span className="bg-blue-600 w-2 h-6 rounded-full inline-block"></span>
+                Resumen del Día
+              </h2>
+              <p className="text-slate-400 text-sm mt-1 pl-4">
+                {todayDateObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+            <div className="bg-slate-800/50 backdrop-blur-sm px-4 py-1.5 rounded-full border border-slate-700 text-xs font-medium text-slate-300">
+              Ventas en tiempo real
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:divide-x divide-slate-800/80">
-             
-             {/* Stat 1: Count */}
-             <div className="flex items-center gap-4 px-2">
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 text-blue-400">
-                   <Smartphone className="w-6 h-6" />
-                </div>
-                <div>
-                   <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">Equipos Vendidos</p>
-                   <p className="text-3xl font-black text-white">{todayCount}</p>
-                </div>
-             </div>
 
-             {/* Stat 2: Revenue */}
-             <div className="flex items-center gap-4 px-2 md:pl-6">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400">
-                   <DollarSign className="w-6 h-6" />
-                </div>
-                <div>
-                   <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">Venta Total</p>
-                   <p className="text-3xl font-black text-white">${todayRevenue.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                </div>
-             </div>
+            {/* Stat 1: Count */}
+            <div className="flex items-center gap-4 px-2">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 text-blue-400">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">Equipos Vendidos</p>
+                <p className="text-3xl font-black text-white">{todayCount}</p>
+              </div>
+            </div>
 
-             {/* Stat 3: Net */}
-             <div className="flex items-center gap-4 px-2 md:pl-6">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400">
-                   <TrendingUp className="w-6 h-6" />
-                </div>
-                <div>
-                   <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">Sin IVA (Base)</p>
-                   <p className="text-3xl font-black text-white">${todayNet.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                </div>
-             </div>
+            {/* Stat 2: Revenue */}
+            <div className="flex items-center gap-4 px-2 md:pl-6">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">Venta Total</p>
+                <p className="text-3xl font-black text-white">${todayRevenue.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+              </div>
+            </div>
+
+            {/* Stat 3: Net */}
+            <div className="flex items-center gap-4 px-2 md:pl-6">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">Sin IVA (Base)</p>
+                <p className="text-3xl font-black text-white">${todayNet.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+              </div>
+            </div>
 
           </div>
         </div>
@@ -101,10 +120,58 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd }) => {
 
       {/* --- LIST HEADER & CONTROLS --- */}
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-800">Transacciones Recientes</h3>
-          <span className="text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{filteredSales.length} registros</span>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">Transacciones</h3>
+            <span className="text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{filteredSales.length} registros mostrados</span>
+          </div>
+
+          {/* Date Mode Toggles */}
+          <div className="flex bg-slate-100 p-1 rounded-xl self-start md:self-center">
+            <button
+              onClick={() => setViewMode('today')}
+              className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'today' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Hoy
+            </button>
+            <button
+              onClick={() => setViewMode('all')}
+              className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'all' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Historial Completo
+            </button>
+            <button
+              onClick={() => setViewMode('custom')}
+              className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'custom' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Rango
+            </button>
+          </div>
         </div>
+
+        {/* Custom Date Inputs */}
+        {viewMode === 'custom' && (
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500">Desde:</span>
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                className="px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500">Hasta:</span>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                className="px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+              />
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
           <div className="relative w-full md:w-80">
@@ -117,7 +184,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd }) => {
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 text-sm font-medium transition-all"
             />
           </div>
-          
+
           <div className="w-full md:w-auto pr-2">
             <select
               value={filterBrand}
@@ -138,7 +205,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd }) => {
         {filteredSales.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-slate-200">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-               <Search className="w-8 h-8 text-slate-300" />
+              <Search className="w-8 h-8 text-slate-300" />
             </div>
             <h3 className="text-slate-800 font-bold mb-1">No se encontraron ventas</h3>
             <p className="text-slate-500 text-sm">Intenta ajustar los filtros de búsqueda.</p>
@@ -150,7 +217,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd }) => {
                 {/* Left: Main Info */}
                 <div className="flex-1 space-y-3 w-full">
                   <div className="flex items-center justify-between md:justify-start gap-3">
-                    <span 
+                    <span
                       className={`px-3 py-1 rounded-full text-[10px] font-bold text-white shadow-sm tracking-wide uppercase ${BRAND_CONFIGS[sale.brand].colorClass}`}
                       style={BRAND_CONFIGS[sale.brand].colorClass.includes('text-black') ? { color: 'black' } : {}}
                     >
@@ -158,28 +225,28 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd }) => {
                     </span>
                     <span className="text-slate-400 text-xs font-mono font-medium tracking-wide">#{sale.invoiceNumber}</span>
                   </div>
-                  
+
                   <div>
-                     <h3 className="font-bold text-slate-800 text-lg leading-tight mb-1">{sale.customerName}</h3>
-                     <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
-                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {sale.date}</span>
-                        <span className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded text-slate-600">
-                           <Tag className="w-3 h-3" /> ${sale.price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                        </span>
-                     </div>
+                    <h3 className="font-bold text-slate-800 text-lg leading-tight mb-1">{sale.customerName}</h3>
+                    <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {sale.date}</span>
+                      <span className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded text-slate-600">
+                        <Tag className="w-3 h-3" /> ${sale.price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Right: Actions & Ticket */}
                 <div className="flex items-center justify-end w-full md:w-auto gap-3 pt-3 md:pt-0 border-t md:border-t-0 border-slate-50 mt-2 md:mt-0">
                   {sale.ticketImage ? (
-                     <button 
-                       onClick={() => setSelectedImage(sale.ticketImage!)}
-                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
-                     >
-                       <Eye className="w-4 h-4" />
-                       Ver Ticket
-                     </button>
+                    <button
+                      onClick={() => setSelectedImage(sale.ticketImage!)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Ver Ticket
+                    </button>
                   ) : (
                     <span className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 bg-slate-50 select-none">
                       <ImageIcon className="w-4 h-4" />
@@ -189,13 +256,15 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd }) => {
 
                   <div className="w-px h-8 bg-slate-100 mx-1 hidden md:block"></div>
 
-                  <button
-                    onClick={() => onDelete(sale.id)}
-                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Eliminar venta"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  {role === 'admin' && (
+                    <button
+                      onClick={() => onDelete(sale.id)}
+                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Eliminar venta"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -207,8 +276,16 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd }) => {
       {selectedImage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setSelectedImage(null)}>
           <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={e => e.stopPropagation()}>
-            <img src={selectedImage} alt="Ticket Full" className="w-full h-full object-contain rounded-xl shadow-2xl" />
-            <button 
+            {selectedImage.includes('google.com') || selectedImage.includes('drive.google') ? (
+              <iframe
+                src={selectedImage.replace('uc?export=view&id=', 'file/d/').replace('/view', '/preview').includes('/preview') ? selectedImage : selectedImage.includes('file/d/') ? selectedImage.split('/view')[0] + '/preview' : `https://drive.google.com/file/d/${selectedImage.split('id=')[1]}/preview`}
+                className="w-full h-[80vh] rounded-xl shadow-2xl bg-white"
+                allow="autoplay"
+              ></iframe>
+            ) : (
+              <img src={selectedImage} alt="Ticket Full" className="w-full h-full object-contain rounded-xl shadow-2xl" />
+            )}
+            <button
               className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-md transition-colors"
               onClick={() => setSelectedImage(null)}
             >

@@ -7,6 +7,7 @@ import DailyClosings from './components/DailyClosings';
 import AuthForm from './components/AuthForm';
 import { Sale, DailyClose, Brand, UserProfile } from './types';
 import { supabase } from './services/supabaseClient';
+import { deleteImageFromDriveScript } from './services/googleAppsScriptService';
 
 const App: React.FC = () => {
   // Auth State
@@ -20,7 +21,7 @@ const App: React.FC = () => {
   const [closings, setClosings] = useState<DailyClose[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // States for Error Handling & Setup
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [isSetupNeeded, setIsSetupNeeded] = useState(false);
@@ -81,12 +82,20 @@ alter table public.sales enable row level security;
 alter table public.daily_closings enable row level security;
 alter table public.profiles enable row level security;
 
--- Limpiar políticas viejas
+-- Limpiar políticas viejas (para evitar conflictos)
 drop policy if exists "Public read sales" on public.sales;
 drop policy if exists "Public insert sales" on public.sales;
 drop policy if exists "Public delete sales" on public.sales;
 drop policy if exists "Admins can delete sales" on public.sales;
 drop policy if exists "Public read closings" on public.daily_closings;
+
+drop policy if exists "Authenticated users can view sales" on public.sales;
+drop policy if exists "Authenticated users can insert sales" on public.sales;
+drop policy if exists "Users can delete own sales" on public.sales;
+
+drop policy if exists "Authenticated users can view closings" on public.daily_closings;
+drop policy if exists "Authenticated users can insert closings" on public.daily_closings;
+drop policy if exists "Authenticated users can update closings" on public.daily_closings;
 
 -- Nuevas Políticas de Ventas
 create policy "Authenticated users can view sales" on public.sales for select to authenticated using (true);
@@ -95,7 +104,7 @@ create policy "Authenticated users can insert sales" on public.sales for insert 
 -- Permitir borrar si eres el creador O si eres admin
 create policy "Users can delete own sales" on public.sales for delete to authenticated using (
   auth.uid() = created_by OR 
-  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  public.is_admin()
 );
 
 -- Nuevas Políticas de Cierres
@@ -104,10 +113,23 @@ create policy "Authenticated users can insert closings" on public.daily_closings
 create policy "Authenticated users can update closings" on public.daily_closings for update to authenticated using (true);
 
 -- Políticas de Perfiles
+drop policy if exists "Users can view own profile" on public.profiles;
+drop policy if exists "Admins can view all profiles" on public.profiles;
+
 create policy "Users can view own profile" on public.profiles for select to authenticated using (auth.uid() = id);
--- Admins pueden ver todos los perfiles
+-- Helper para evitar recursión infinita en políticas
+create or replace function public.is_admin()
+returns boolean as $$
+begin
+  return exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'admin'
+  );
+end;
+$$ language plpgsql security definer;
+
 create policy "Admins can view all profiles" on public.profiles for select to authenticated using (
-  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  public.is_admin()
 );
 
 -- 4. ALMACENAMIENTO (STORAGE)
@@ -140,11 +162,11 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-         fetchUserProfile(session.user.id);
+        fetchUserProfile(session.user.id);
       } else {
-         setUserProfile(null);
-         setSales([]); // Clear sensitive data on logout
-         setClosings([]);
+        setUserProfile(null);
+        setSales([]); // Clear sensitive data on logout
+        setClosings([]);
       }
       setAuthLoading(false);
     });
@@ -159,11 +181,11 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
         .select('*')
         .eq('id', userId)
         .single();
-      
+
       if (data) {
         setUserProfile(data as UserProfile);
       } else if (error && error.code === 'PGRST116') {
-         console.warn("Profile not found, waiting for trigger or manual creation");
+        console.warn("Profile not found, waiting for trigger or manual creation");
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -185,7 +207,7 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
     const checkMidnight = () => {
       const now = new Date();
       // Obtenemos la fecha actual como string único (ej: "Mon Oct 25 2023")
-      const currentDateStr = now.toDateString(); 
+      const currentDateStr = now.toDateString();
       const storedDate = localStorage.getItem(SESSION_DATE_KEY);
 
       if (!storedDate) {
@@ -219,7 +241,7 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
   // --- FETCH DATA FROM SUPABASE ---
   const fetchData = async () => {
     if (!session) return;
-    
+
     setIsLoading(true);
     setConnectionError(null);
     setIsSetupNeeded(false);
@@ -260,8 +282,8 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
 
       if (closingsError) {
         if (closingsError.code === '42P01') {
-           setIsSetupNeeded(true);
-           throw new Error("Tabla 'daily_closings' no encontrada.");
+          setIsSetupNeeded(true);
+          throw new Error("Tabla 'daily_closings' no encontrada.");
         }
         throw closingsError;
       }
@@ -352,12 +374,20 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
     if (!window.confirm("¿Estás seguro de que quieres eliminar este registro?")) return;
 
     try {
+      // Find sale to get image URL
+      const saleToDelete = sales.find(s => s.id === id);
+
       const { error } = await supabase
         .from('sales')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+
+      // Delete image from Drive if it exists
+      if (saleToDelete?.ticketImage && saleToDelete.ticketImage.includes('google.com')) {
+        deleteImageFromDriveScript(saleToDelete.ticketImage).catch(console.error);
+      }
 
       // Actualizar estado local eliminando el item
       setSales(prev => prev.filter(s => s.id !== id));
@@ -397,7 +427,7 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
         const filtered = prev.filter(c => c.date !== newClose.date);
         return [newClose, ...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       });
-      
+
       alert("Cierre de día actualizado correctamente.");
 
     } catch (error: any) {
@@ -416,8 +446,8 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
         }}
         className={`
           relative flex items-center gap-3 px-4 py-3.5 rounded-xl w-full text-left transition-all duration-200 group
-          ${isActive 
-            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' 
+          ${isActive
+            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
             : 'text-slate-400 hover:bg-slate-800 hover:text-white'
           }
         `}
@@ -445,80 +475,80 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
 
   // --- RENDER: SETUP / ERROR SCREEN ---
   if (isSetupNeeded || (connectionError && sales.length === 0 && closings.length === 0)) {
-     return (
-        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4 font-sans">
-           <div className="max-w-2xl w-full space-y-8">
-              <div className="text-center space-y-4">
-                 <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-blue-500/30">
-                    <Database className="w-8 h-8 text-white" />
-                 </div>
-                 <h1 className="text-3xl font-bold">Actualización Necesaria</h1>
-                 <p className="text-slate-400 max-w-md mx-auto">
-                    {connectionError 
-                      ? "Ocurrió un error al conectar con Supabase." 
-                      : "Para habilitar el sistema de usuarios y roles, necesitamos actualizar la base de datos."}
-                 </p>
-                 {connectionError && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-200 p-3 rounded-lg text-sm font-mono break-all inline-block max-w-full">
-                       Error: {connectionError}
-                    </div>
-                 )}
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4 font-sans">
+        <div className="max-w-2xl w-full space-y-8">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-blue-500/30">
+              <Database className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold">Actualización Necesaria</h1>
+            <p className="text-slate-400 max-w-md mx-auto">
+              {connectionError
+                ? "Ocurrió un error al conectar con Supabase."
+                : "Para habilitar el sistema de usuarios y roles, necesitamos actualizar la base de datos."}
+            </p>
+            {connectionError && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-200 p-3 rounded-lg text-sm font-mono break-all inline-block max-w-full">
+                Error: {connectionError}
               </div>
+            )}
+          </div>
 
-              <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
-                 <div className="bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm font-mono text-slate-400">
-                       <Database className="w-4 h-4" />
-                       <span>SQL Update Script</span>
-                    </div>
-                    <button 
-                       onClick={copyToClipboard}
-                       className="flex items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg transition-colors text-white"
-                    >
-                       {copiedSql ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                       {copiedSql ? "¡Copiado!" : "Copiar SQL"}
-                    </button>
-                 </div>
-                 <div className="p-6 overflow-x-auto">
-                    <pre className="text-xs md:text-sm font-mono text-emerald-400 whitespace-pre-wrap leading-relaxed">
-                       {REQUIRED_SQL}
-                    </pre>
-                 </div>
-                 <div className="bg-slate-800 p-6 border-t border-slate-700">
-                    <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                       <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                       Instrucciones:
-                    </h3>
-                    <ol className="text-sm text-slate-400 space-y-2 list-decimal list-inside ml-2">
-                       <li>Ve al Dashboard de tu proyecto en <a href="https://supabase.com/dashboard" target="_blank" className="text-blue-400 hover:underline" rel="noreferrer">Supabase</a>.</li>
-                       <li>Abre el <strong>SQL Editor</strong> en el menú lateral.</li>
-                       <li>Haz clic en <strong>New Query</strong>.</li>
-                       <li>Pega el código de arriba y haz clic en <strong>RUN</strong>.</li>
-                       <li>Vuelve aquí y presiona "Reintentar Conexión".</li>
-                    </ol>
-                    <button 
-                       onClick={fetchData}
-                       className="mt-6 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
-                    >
-                       <RefreshCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-                       Reintentar Conexión
-                    </button>
-                 </div>
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div className="bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-mono text-slate-400">
+                <Database className="w-4 h-4" />
+                <span>SQL Update Script</span>
               </div>
-           </div>
+              <button
+                onClick={copyToClipboard}
+                className="flex items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg transition-colors text-white"
+              >
+                {copiedSql ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copiedSql ? "¡Copiado!" : "Copiar SQL"}
+              </button>
+            </div>
+            <div className="p-6 overflow-x-auto">
+              <pre className="text-xs md:text-sm font-mono text-emerald-400 whitespace-pre-wrap leading-relaxed">
+                {REQUIRED_SQL}
+              </pre>
+            </div>
+            <div className="bg-slate-800 p-6 border-t border-slate-700">
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                Instrucciones:
+              </h3>
+              <ol className="text-sm text-slate-400 space-y-2 list-decimal list-inside ml-2">
+                <li>Ve al Dashboard de tu proyecto en <a href="https://supabase.com/dashboard" target="_blank" className="text-blue-400 hover:underline" rel="noreferrer">Supabase</a>.</li>
+                <li>Abre el <strong>SQL Editor</strong> en el menú lateral.</li>
+                <li>Haz clic en <strong>New Query</strong>.</li>
+                <li>Pega el código de arriba y haz clic en <strong>RUN</strong>.</li>
+                <li>Vuelve aquí y presiona "Reintentar Conexión".</li>
+              </ol>
+              <button
+                onClick={fetchData}
+                className="mt-6 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                <RefreshCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                Reintentar Conexión
+              </button>
+            </div>
+          </div>
         </div>
-     );
+      </div>
+    );
   }
 
   // --- MAIN APP RENDER ---
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
-      
+
       {/* Mobile Header */}
       <div className="md:hidden bg-slate-900 text-white p-4 flex items-center justify-between shadow-md sticky top-0 z-20">
         <div className="flex items-center gap-2 font-bold text-lg">
-           <Smartphone className="w-6 h-6 text-blue-400" />
-           <span>Ventas Telcel</span>
+          <Smartphone className="w-6 h-6 text-blue-400" />
+          <span>Ventas Telcel</span>
         </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-300 hover:text-white">
           {isMobileMenuOpen ? <X /> : <Menu />}
@@ -532,17 +562,17 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
       `}>
         {/* Sidebar Header */}
         <div className="p-6 md:p-8 flex items-center justify-between">
-           <div className="flex flex-col gap-2 w-full">
-              {/* Restored Text Logo */}
-              <div className="flex items-center gap-3 px-2">
-                 <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/50">
-                   <Smartphone className="w-6 h-6 text-white" />
-                 </div>
-                 <span className="text-xl font-bold text-white tracking-tight">Ventas Telcel</span>
+          <div className="flex flex-col gap-2 w-full">
+            {/* Restored Text Logo */}
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/50">
+                <Smartphone className="w-6 h-6 text-white" />
               </div>
-              <p className="text-slate-500 text-[10px] font-bold tracking-widest text-center mt-4">PANEL DE CONTROL</p>
-           </div>
-           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-500"><X /></button>
+              <span className="text-xl font-bold text-white tracking-tight">Ventas Telcel</span>
+            </div>
+            <p className="text-slate-500 text-[10px] font-bold tracking-widest text-center mt-4">PANEL DE CONTROL</p>
+          </div>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-500"><X /></button>
         </div>
 
         {/* Navigation Items */}
@@ -555,39 +585,39 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
 
         {/* User Profile Section */}
         <div className="p-4 border-t border-slate-800">
-           <div className="bg-slate-800/50 rounded-xl p-3 flex items-center gap-3 border border-slate-700/50 hover:border-slate-600 transition-colors group">
-              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                <UserIcon className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-medium truncate">
-                   {userProfile?.email?.split('@')[0] || 'Usuario'}
+          <div className="bg-slate-800/50 rounded-xl p-3 flex items-center gap-3 border border-slate-700/50 hover:border-slate-600 transition-colors group">
+            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <UserIcon className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-sm font-medium truncate">
+                {userProfile?.email?.split('@')[0] || 'Usuario'}
+              </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Shield className={`w-3 h-3 ${userProfile?.role === 'admin' ? 'text-yellow-400' : 'text-slate-500'}`} />
+                <p className="text-slate-500 text-[10px] uppercase font-bold truncate">
+                  {userProfile?.role === 'admin' ? 'Administrador' : 'Vendedor'}
                 </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                   <Shield className={`w-3 h-3 ${userProfile?.role === 'admin' ? 'text-yellow-400' : 'text-slate-500'}`} />
-                   <p className="text-slate-500 text-[10px] uppercase font-bold truncate">
-                     {userProfile?.role === 'admin' ? 'Administrador' : 'Vendedor'}
-                   </p>
-                </div>
               </div>
-              <button 
-                 onClick={handleLogout}
-                 className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
-                 title="Cerrar Sesión"
-              >
-                 <LogOut className="w-4 h-4" />
-              </button>
-           </div>
-           <div className="mt-4 text-center">
-             <p className="text-[10px] text-slate-600">v3.3 (Telcel Ed.)</p>
-           </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+              title="Cerrar Sesión"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="mt-4 text-center">
+            <p className="text-[10px] text-slate-600">v3.3 (Telcel Ed.)</p>
+          </div>
         </div>
       </nav>
 
       {/* Main Content Area */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen scroll-smooth bg-slate-100 relative">
         <div className="max-w-6xl mx-auto space-y-6">
-          
+
           {/* Header Section */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
@@ -605,11 +635,11 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
                 {currentView === 'closings' && 'Realiza cortes y revisa ingresos acumulados.'}
               </p>
             </div>
-            
-            <div className="flex items-center gap-3">
-               {/* Refresh button removed per user request */}
 
-               {currentView === 'list' && (
+            <div className="flex items-center gap-3">
+              {/* Refresh button removed per user request */}
+
+              {currentView === 'list' && (
                 <button
                   onClick={() => setCurrentView('form')}
                   className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5"
@@ -623,17 +653,18 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
 
           <div className="fade-in">
             {currentView === 'list' && (
-              <SalesList 
-                sales={sales} 
-                onDelete={handleDeleteSale} 
+              <SalesList
+                sales={sales}
+                onDelete={handleDeleteSale}
                 onAdd={() => setCurrentView('form')}
+                role={userProfile?.role}
               />
             )}
             {currentView === 'form' && (
               <SalesForm onAddSale={handleAddSale} onCancel={() => setCurrentView('list')} />
             )}
             {currentView === 'dashboard' && (
-              <Dashboard sales={sales} />
+              <Dashboard sales={sales} role={userProfile?.role} />
             )}
             {currentView === 'closings' && (
               <DailyClosings sales={sales} closings={closings} onCloseDay={handleCloseDay} />
@@ -642,7 +673,7 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
 
         </div>
       </main>
-      
+
       {/* Floating Action Button (Mobile Only for List View) */}
       {currentView === 'list' && (
         <button

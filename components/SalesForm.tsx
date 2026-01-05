@@ -3,7 +3,7 @@ import { Plus, Camera, Loader2, Save, X, Sparkles, AlertCircle, Trash2, Smartpho
 import { Brand, Sale } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 import { analyzeTicketImage } from '../services/geminiService';
-import { uploadTicketImage } from '../services/supabaseClient';
+import { uploadImageToDriveScript } from '../services/googleAppsScriptService';
 
 interface SalesFormProps {
   onAddSale: (sale: Omit<Sale, 'id'>) => void;
@@ -20,9 +20,9 @@ interface SaleItem {
 const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
   // Construct local YYYY-MM-DD for default date to avoid UTC issues
   const localDate = new Date();
-  const defaultDateStr = localDate.getFullYear() + '-' + 
-                         String(localDate.getMonth() + 1).padStart(2, '0') + '-' + 
-                         String(localDate.getDate()).padStart(2, '0');
+  const defaultDateStr = localDate.getFullYear() + '-' +
+    String(localDate.getMonth() + 1).padStart(2, '0') + '-' +
+    String(localDate.getDate()).padStart(2, '0');
 
   // Common fields for the whole ticket
   const [commonData, setCommonData] = useState({
@@ -38,7 +38,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
 
   const [ticketImage, setTicketImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,7 +75,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
   // Item management
   const handleAddItem = () => {
     setItems(prev => [
-      ...prev, 
+      ...prev,
       { tempId: Date.now(), brand: Brand.SAMSUNG, price: '' }
     ]);
   };
@@ -89,9 +89,9 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
   const handleItemChange = (tempId: number, field: keyof SaleItem, value: any) => {
     setItems(prev => prev.map(item => {
       if (item.tempId !== tempId) return item;
-      
+
       const updated = { ...item, [field]: value };
-      
+
       // Clear error if typing price
       if (field === 'price' && item.error) {
         updated.error = undefined;
@@ -122,10 +122,10 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
     setIsAnalyzing(true);
     try {
       const result = await analyzeTicketImage(ticketImage);
-      
+
       setCommonData(prev => ({
         ...prev,
-        // Limpiamos invoiceNumber si viene de la IA para asegurar que solo sean números si es necesario, 
+        // Limpiamos invoiceNumber si viene de la IA para asegurar que solo sean números si es necesario,
         // o dejamos que el usuario lo corrija. Por ahora aplicamos replace.
         invoiceNumber: (result.invoiceNumber || prev.invoiceNumber).replace(/\D/g, ''),
         date: result.date || prev.date,
@@ -152,7 +152,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate Common Fields
     if (!commonData.invoiceNumber.trim() || !commonData.customerName.trim()) {
       alert("Por favor complete los campos obligatorios: Número de Factura y Nombre del Cliente.");
@@ -180,23 +180,22 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
     let finalImageUrl: string | undefined = undefined;
 
     // Upload Image logic
-    if (selectedFile) {
-       try {
-         const uploadedUrl = await uploadTicketImage(selectedFile);
-         if (uploadedUrl) {
-            finalImageUrl = uploadedUrl;
-         } else {
-            alert("Advertencia: No se pudo subir la imagen a la nube. Se guardará sin foto.");
-         }
-       } catch (error) {
-         console.error("Error uploading:", error);
-         alert("Error al subir la imagen. Intenta de nuevo.");
-         setIsSubmitting(false);
-         return;
-       }
-    } else if (ticketImage) {
-       // Fallback for when we have base64 but no file object (rare, but good for safety if using camera API differently)
-       finalImageUrl = ticketImage; // This will likely be too large for DB, but acts as fallback
+    // Upload Image logic (Google Apps Script)
+    if (ticketImage) { // Prefer the base64 preview we already have
+      try {
+        const filename = `Ticket Factura #${commonData.invoiceNumber} - ${commonData.customerName}`;
+        const uploadedUrl = await uploadImageToDriveScript(ticketImage, filename);
+        if (uploadedUrl) {
+          finalImageUrl = uploadedUrl;
+        } else {
+          alert("Advertencia: No se pudo subir la imagen a Google Drive.");
+        }
+      } catch (error) {
+        console.error("Error uploading:", error);
+        alert("Error al subir la imagen al script de Google. Verifica la consola.");
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     // Submit all items as separate sales sharing common data
@@ -232,7 +231,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        
+
         {/* SECTION 1: COMMON DATA */}
         <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -240,12 +239,12 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
             Datos Generales del Ticket
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div className="space-y-1">
+            <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700">
                 Número de Factura <span className="text-red-500">*</span>
               </label>
               <input
-                type="text" 
+                type="text"
                 inputMode="numeric"
                 name="invoiceNumber"
                 value={commonData.invoiceNumber}
@@ -255,8 +254,8 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
                 required
               />
             </div>
-            
-             <div className="space-y-1">
+
+            <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700">
                 Nombre del Cliente <span className="text-red-500">*</span>
               </label>
@@ -290,16 +289,16 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
         {/* SECTION 2: ITEMS LIST */}
         <div>
           <div className="flex justify-between items-end mb-2">
-             <label className="block text-sm font-bold text-slate-700">Equipos Vendidos ({items.length})</label>
-             <div className="text-sm text-slate-500 font-medium bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                Total Factura: <span className="text-slate-900 font-bold">${calculateTotal().toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
-             </div>
+            <label className="block text-sm font-bold text-slate-700">Equipos Vendidos ({items.length})</label>
+            <div className="text-sm text-slate-500 font-medium bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+              Total Factura: <span className="text-slate-900 font-bold">${calculateTotal().toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+            </div>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
             {items.map((item, index) => (
-              <div 
-                key={item.tempId} 
+              <div
+                key={item.tempId}
                 className={`p-4 flex flex-col md:flex-row gap-4 items-start md:items-center bg-white animate-in fade-in slide-in-from-left-2 duration-300 ${index !== 0 ? 'border-t border-slate-100' : ''}`}
               >
                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 text-sm font-bold shrink-0">
@@ -322,7 +321,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
                       ))}
                     </select>
                     {/* Brand Color Indicator */}
-                    <div 
+                    <div
                       className={`absolute right-8 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full ${BRAND_CONFIGS[item.brand].colorClass.split(' ')[0]} md:mt-0 mt-3`}
                       style={{ backgroundColor: BRAND_CONFIGS[item.brand].hex }}
                     />
@@ -339,11 +338,10 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
                       type="number"
                       value={item.price}
                       onChange={(e) => handleItemChange(item.tempId, 'price', e.target.value)}
-                      className={`w-full pl-7 pr-3 py-2 border rounded-lg focus:ring-2 outline-none text-sm transition-all bg-white text-slate-900 placeholder:text-slate-400 ${
-                        item.error 
-                          ? 'border-red-500 bg-red-50 focus:ring-red-200' 
-                          : 'border-slate-300 focus:ring-blue-500'
-                      }`}
+                      className={`w-full pl-7 pr-3 py-2 border rounded-lg focus:ring-2 outline-none text-sm transition-all bg-white text-slate-900 placeholder:text-slate-400 ${item.error
+                        ? 'border-red-500 bg-red-50 focus:ring-red-200'
+                        : 'border-slate-300 focus:ring-blue-500'
+                        }`}
                       placeholder="0.00"
                       step="0.01"
                       required
@@ -386,7 +384,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
         <div className="space-y-2 pt-4 border-t border-slate-100">
           <label className="block text-sm font-medium text-slate-700">Foto del Ticket (Opcional)</label>
           <div className="flex items-start gap-4">
-            <div 
+            <div
               onClick={() => fileInputRef.current?.click()}
               className={`
                 relative w-32 h-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-colors bg-white shrink-0 overflow-hidden
@@ -401,21 +399,21 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
                   <span className="text-xs text-slate-500 text-center px-1">Tomar Foto</span>
                 </>
               )}
-              <input 
+              <input
                 ref={fileInputRef}
-                type="file" 
-                accept="image/*" 
+                type="file"
+                accept="image/*"
                 capture="environment"
-                className="hidden" 
+                className="hidden"
                 onChange={handleFileChange}
               />
             </div>
 
             <div className="flex flex-col gap-2">
-               <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
-                 Toma una foto clara del ticket. La imagen se guardará de forma segura en la nube.
-               </p>
-               {ticketImage && (
+              <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+                Toma una foto clara del ticket. La imagen se guardará de forma segura en la nube.
+              </p>
+              {ticketImage && (
                 <button
                   type="button"
                   onClick={handleAnalyzeTicket}
@@ -428,6 +426,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
               )}
             </div>
           </div>
+
         </div>
 
         <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
@@ -448,8 +447,8 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
             {isSubmitting ? (selectedFile ? "Subiendo imagen..." : "Guardando...") : `Guardar Venta (${items.length})`}
           </button>
         </div>
-      </form>
-    </div>
+      </form >
+    </div >
   );
 };
 

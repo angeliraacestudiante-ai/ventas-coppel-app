@@ -1,15 +1,21 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { TicketAnalysisResult, Brand } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const analyzeTicketImage = async (base64Image: string): Promise<TicketAnalysisResult> => {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn("Gemini API Key is missing. Skipping analysis.");
+    return {}; // Graceful degradation
+  }
+
   try {
+    const ai = new GoogleGenAI({ apiKey });
+
     // Remove header if present (e.g., "data:image/jpeg;base64,")
     const base64Data = base64Image.split(',')[1] || base64Image;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash-lite-preview-02-05",
       contents: {
         parts: [
           {
@@ -44,7 +50,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
 
     if (response.text) {
       const data = JSON.parse(response.text);
-      
+
       // Validate brand match
       let matchedBrand = Brand.OTRO;
       if (data.brand && Object.values(Brand).includes(data.brand as Brand)) {
@@ -58,7 +64,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
         brand: matchedBrand
       };
     }
-    
+
     return {};
   } catch (error) {
     console.error("Error analyzing ticket:", error);
