@@ -38,27 +38,41 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
     }
   };
 
-  // --- REVENUE GOAL STATE ---
-  const [monthlyGoal, setMonthlyGoal] = useState<number>(() => {
-    const saved = localStorage.getItem('monthly_sales_goal');
-    return saved ? parseFloat(saved) : 100000;
-  });
-  const [goalMonth, setGoalMonth] = useState<string>(() => {
-    return localStorage.getItem('monthly_sales_goal_month') || '';
-  });
+  // --- GOALS STATE (SYNCED WITH DB) ---
+  const [monthlyGoal, setMonthlyGoal] = useState<number>(100000);
+  const [devicesGoal, setDevicesGoal] = useState<number>(50);
+  // Goals are now "locked" implicitly by being set in DB, but we allow admin to always edit (upsert)
+
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [tempGoal, setTempGoal] = useState(monthlyGoal.toString());
 
-  // --- DEVICE COUNT GOAL STATE ---
-  const [devicesGoal, setDevicesGoal] = useState<number>(() => {
-    const saved = localStorage.getItem('monthly_devices_goal');
-    return saved ? parseInt(saved) : 50;
-  });
-  const [devicesGoalMonth, setDevicesGoalMonth] = useState<string>(() => {
-    return localStorage.getItem('monthly_devices_goal_month') || '';
-  });
   const [isEditingDevices, setIsEditingDevices] = useState(false);
   const [tempDevicesGoal, setTempDevicesGoal] = useState(devicesGoal.toString());
+
+  const currentMonthPrefix = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+  useEffect(() => {
+    const fetchGoals = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('monthly_goals')
+          .select('*')
+          .eq('month', currentMonthPrefix)
+          .single();
+
+        if (data) {
+          setMonthlyGoal(data.revenue_goal);
+          setDevicesGoal(data.devices_goal);
+        } else if (error && error.code !== 'PGRST116') {
+          console.error("Error fetching goals", error);
+        }
+      } catch (err) {
+        console.error("Fetch goals error", err);
+      }
+    };
+    fetchGoals();
+  }, [currentMonthPrefix]);
+
 
   // --- CALCULATIONS ---
   // 1. Historical Totals (Keep existing for bottom cards)
@@ -67,16 +81,13 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
 
   // 2. Current Month Totals (For Goals)
   const todayDate = new Date();
-  const currentMonthPrefix = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}`;
 
   const currentMonthSales = sales.filter(s => s.date.startsWith(currentMonthPrefix));
   const currentMonthRevenue = currentMonthSales.reduce((sum, sale) => sum + sale.price, 0);
   const currentMonthCount = currentMonthSales.length;
   const currentMonthNet = currentMonthRevenue / 1.16;
 
-  // Check if goals are locked for the current month
-  const isGoalLocked = goalMonth === currentMonthPrefix;
-  const isDevicesGoalLocked = devicesGoalMonth === currentMonthPrefix;
+  // Goals are implicitly applicable if fetched
 
   // Revenue Progress (Monthly)
   const revenueProgress = Math.min((currentMonthNet / monthlyGoal) * 100, 100);
@@ -97,25 +108,38 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
   const strokeDashoffsetDevices = circumference - (devicesProgress / 100) * circumference;
 
   // --- HANDLERS ---
-  const handleSaveGoal = () => {
+  // --- HANDLERS ---
+  const handleSaveGoal = async () => {
     const val = parseFloat(tempGoal);
     if (!isNaN(val) && val > 0) {
       setMonthlyGoal(val);
-      setGoalMonth(currentMonthPrefix);
-      localStorage.setItem('monthly_sales_goal', val.toString());
-      localStorage.setItem('monthly_sales_goal_month', currentMonthPrefix);
       setIsEditingGoal(false);
+
+      // Save to Supabase
+      const { error } = await supabase.from('monthly_goals').upsert({
+        month: currentMonthPrefix,
+        revenue_goal: val,
+        devices_goal: devicesGoal // Keep existing device goal
+      }, { onConflict: 'month' });
+
+      if (error) alert("Error al guardar meta: " + error.message);
     }
   };
 
-  const handleSaveDevicesGoal = () => {
+  const handleSaveDevicesGoal = async () => {
     const val = parseInt(tempDevicesGoal);
     if (!isNaN(val) && val > 0) {
       setDevicesGoal(val);
-      setDevicesGoalMonth(currentMonthPrefix);
-      localStorage.setItem('monthly_devices_goal', val.toString());
-      localStorage.setItem('monthly_devices_goal_month', currentMonthPrefix);
       setIsEditingDevices(false);
+
+      // Save to Supabase
+      const { error } = await supabase.from('monthly_goals').upsert({
+        month: currentMonthPrefix,
+        revenue_goal: monthlyGoal, // Keep existing revenue goal
+        devices_goal: val
+      }, { onConflict: 'month' });
+
+      if (error) alert("Error al guardar meta: " + error.message);
     }
   };
 
@@ -191,14 +215,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
               </div>
             </div>
             {role === 'admin' && !isEditingGoal && (
-              isGoalLocked ? (
-                <div className="group/tooltip relative">
-                  <button disabled className="p-2 text-slate-600 cursor-not-allowed rounded-full"><Edit2 className="w-4 h-4" /></button>
-                  <span className="absolute -top-8 right-0 bg-slate-800 text-xs px-2 py-1 rounded text-white opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap">Meta fijada por este mes</span>
-                </div>
-              ) : (
-                <button onClick={() => { setTempGoal(monthlyGoal.toString()); setIsEditingGoal(true); }} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-colors"><Edit2 className="w-4 h-4" /></button>
-              )
+              <button onClick={() => { setTempGoal(monthlyGoal.toString()); setIsEditingGoal(true); }} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-colors"><Edit2 className="w-4 h-4" /></button>
             )}
           </div>
 
@@ -251,14 +268,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
               </div>
             </div>
             {role === 'admin' && !isEditingDevices && (
-              isDevicesGoalLocked ? (
-                <div className="group/tooltip relative">
-                  <button disabled className="p-2 text-slate-600 cursor-not-allowed rounded-full"><Edit2 className="w-4 h-4" /></button>
-                  <span className="absolute -top-8 right-0 bg-slate-800 text-xs px-2 py-1 rounded text-white opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap">Meta fijada por este mes</span>
-                </div>
-              ) : (
-                <button onClick={() => { setTempDevicesGoal(devicesGoal.toString()); setIsEditingDevices(true); }} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-colors"><Edit2 className="w-4 h-4" /></button>
-              )
+              <button onClick={() => { setTempDevicesGoal(devicesGoal.toString()); setIsEditingDevices(true); }} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-colors"><Edit2 className="w-4 h-4" /></button>
             )}
           </div>
 

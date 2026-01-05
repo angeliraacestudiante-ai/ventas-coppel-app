@@ -16,7 +16,15 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
 
   // App State
-  const [currentView, setCurrentView] = useState<'form' | 'list' | 'dashboard' | 'closings'>('list');
+  // App State
+  const [currentView, setCurrentView] = useState<'form' | 'list' | 'dashboard' | 'closings'>(() => {
+    const saved = localStorage.getItem('app_current_view');
+    return (saved as 'form' | 'list' | 'dashboard' | 'closings') || 'list';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('app_current_view', currentView);
+  }, [currentView]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [closings, setClosings] = useState<DailyClose[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -25,7 +33,9 @@ const App: React.FC = () => {
   // States for Error Handling & Setup
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [isSetupNeeded, setIsSetupNeeded] = useState(false);
+
   const [copiedSql, setCopiedSql] = useState(false);
+  const [saleToEdit, setSaleToEdit] = useState<Sale | null>(null);
 
   // SQL Script Update: Adds Profiles table and stricter policies
   const REQUIRED_SQL = `
@@ -150,11 +160,38 @@ using ( bucket_id = 'receipts' );
 -- Permitir subir imágenes solo a usuarios autenticados
 create policy "Auth Upload Receipts" on storage.objects for insert
 with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
+
+-- 5. METAS MENSUALES
+create table if not exists public.monthly_goals (
+  month text primary key,
+  revenue_goal numeric not null,
+  devices_goal numeric not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.monthly_goals enable row level security;
+
+-- Todos pueden ver las metas
+drop policy if exists "Authenticated users can view goals" on public.monthly_goals;
+create policy "Authenticated users can view goals" on public.monthly_goals for select to authenticated using (true);
+
+-- Solo admins pueden modificar (aunque por simplicidad técnica permitimos auth update, idealmente restringido)
+-- Usamos is_admin() si está ya definido, si no, fallback a authenticated para permitir upsert si la función falla o no existe aun.
+drop policy if exists "Authenticated users can upsert goals" on public.monthly_goals;
+create policy "Authenticated users can upsert goals" on public.monthly_goals for all to authenticated using (true) with check (true);
 `;
 
   // --- AUTH CHECK ---
   useEffect(() => {
+    // Safety timeout: If Supabase takes too long (common on slow mobile networks), 
+    // force stop loading so user isn't stuck on blue screen.
+    const safetyTimeout = setTimeout(() => {
+      console.warn("Auth check taking too long, forcing load.");
+      setAuthLoading(false);
+    }, 3000);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(safetyTimeout);
       setSession(session);
       if (session) fetchUserProfile(session.user.id);
       setAuthLoading(false);
@@ -172,7 +209,10 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
       setAuthLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
@@ -401,6 +441,40 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
     } catch (error: any) {
       console.error('Error saving sale:', error);
       alert(`Error al guardar la venta: ${formatError(error)}`);
+    } finally {
+      setIsLoading(false);
+    }
+
+  };
+
+  const handleUpdateSale = async (updatedSale: Sale) => {
+    if (!session) return;
+    setIsLoading(true);
+    try {
+      const dbPayload = {
+        invoice_number: updatedSale.invoiceNumber,
+        customer_name: updatedSale.customerName,
+        price: updatedSale.price,
+        brand: updatedSale.brand,
+        date: updatedSale.date,
+        ticket_image: updatedSale.ticketImage // Can be null or URL
+      };
+
+      const { error } = await supabase
+        .from('sales')
+        .update(dbPayload)
+        .eq('id', updatedSale.id);
+
+      if (error) throw error;
+
+      setSales(prev => prev.map(s => s.id === updatedSale.id ? updatedSale : s));
+      alert("Venta actualizada correctamente.");
+      setSaleToEdit(null);
+      setCurrentView('list');
+
+    } catch (error: any) {
+      console.error('Error updating sale:', error);
+      alert(`Error al actualizar la venta: ${formatError(error)}`);
     } finally {
       setIsLoading(false);
     }
@@ -695,12 +769,27 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
               <SalesList
                 sales={sales}
                 onDelete={handleDeleteSale}
-                onAdd={() => setCurrentView('form')}
+                onEdit={(sale) => {
+                  setSaleToEdit(sale);
+                  setCurrentView('form');
+                }}
+                onAdd={() => {
+                  setSaleToEdit(null);
+                  setCurrentView('form');
+                }}
                 role={userProfile?.role}
               />
             )}
             {currentView === 'form' && (
-              <SalesForm onAddSale={handleAddSale} onCancel={() => setCurrentView('list')} />
+              <SalesForm
+                onAddSale={handleAddSale}
+                onUpdateSale={handleUpdateSale}
+                initialData={saleToEdit}
+                onCancel={() => {
+                  setSaleToEdit(null);
+                  setCurrentView('list');
+                }}
+              />
             )}
             {currentView === 'dashboard' && (
               <Dashboard sales={sales} role={userProfile?.role} />
@@ -716,7 +805,10 @@ with check ( bucket_id = 'receipts' and auth.role() = 'authenticated' );
       {/* Floating Action Button (Mobile Only for List View) */}
       {currentView === 'list' && (
         <button
-          onClick={() => setCurrentView('form')}
+          onClick={() => {
+            setSaleToEdit(null);
+            setCurrentView('form');
+          }}
           className="md:hidden fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-2xl shadow-blue-500/40 hover:bg-blue-700 transition-transform active:scale-95 z-30"
           title="Nueva Venta"
         >

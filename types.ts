@@ -35,6 +35,7 @@ export interface TicketAnalysisResult {
   price?: number;
   date?: string;
   brand?: Brand;
+  customerName?: string;
 }
 
 export interface DailyClose {
@@ -53,4 +54,10 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   fullName?: string;
+}
+
+export interface MonthlyGoal {
+  month: string; // YYYY-MM
+  revenue_goal: number;
+  devices_goal: number;
 }

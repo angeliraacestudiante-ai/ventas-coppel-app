@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Image as ImageIcon, Calendar, User, Tag, Trash2, Eye, DollarSign, TrendingUp, Smartphone, MoreHorizontal } from 'lucide-react';
+import { Search, Image as ImageIcon, Calendar, User, Tag, Trash2, Eye, DollarSign, TrendingUp, Smartphone, MoreHorizontal, Edit2 } from 'lucide-react';
 import { Sale, Brand } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 
@@ -7,10 +7,11 @@ interface SalesListProps {
   sales: Sale[];
   onDelete: (id: string) => void;
   onAdd: () => void;
+  onEdit: (sale: Sale) => void;
   role?: string;
 }
 
-const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd, role }) => {
+const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onEdit, onAdd, role }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBrand, setFilterBrand] = useState<Brand | 'ALL'>('ALL');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -52,6 +53,20 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd, role }) =
     // if 'all', matchesDate remains true
 
     return matchesSearch && matchesBrand && matchesDate;
+    return matchesSearch && matchesBrand && matchesDate;
+  }).sort((a, b) => {
+    // Sort by Date Descending first (most recent)
+    // Then by Invoice Number Descending
+    const dateDiff = b.date.localeCompare(a.date);
+    if (dateDiff !== 0) return dateDiff;
+
+    // Attempt numeric sort for invoice
+    const invA = parseInt(a.invoiceNumber);
+    const invB = parseInt(b.invoiceNumber);
+    if (!isNaN(invA) && !isNaN(invB)) {
+      return invB - invA;
+    }
+    return b.invoiceNumber.localeCompare(a.invoiceNumber);
   });
 
   return (
@@ -256,14 +271,25 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onAdd, role }) =
 
                   <div className="w-px h-8 bg-slate-100 mx-1 hidden md:block"></div>
 
+                  <div className="w-px h-8 bg-slate-100 mx-1 hidden md:block"></div>
+
                   {role === 'admin' && (
-                    <button
-                      onClick={() => onDelete(sale.id)}
-                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Eliminar venta"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => onEdit(sale)}
+                        className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Editar venta"
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(sale.id)}
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Eliminar venta"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

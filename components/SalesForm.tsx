@@ -1,12 +1,14 @@
-import React, { useState, useRef } from 'react';
-import { Plus, Camera, Loader2, Save, X, Sparkles, AlertCircle, Trash2, Smartphone, CloudUpload } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, Camera, Loader2, Save, X, Sparkles, Trash2, Smartphone, Edit2, Eye } from 'lucide-react'; // Added Eye icon
 import { Brand, Sale } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 import { analyzeTicketImage } from '../services/geminiService';
-import { uploadImageToDriveScript } from '../services/googleAppsScriptService';
+import { uploadImageToDriveScript, deleteImageFromDriveScript } from '../services/googleAppsScriptService'; // Import delete service
 
 interface SalesFormProps {
-  onAddSale: (sale: Omit<Sale, 'id'>) => void;
+  onAddSale: (sale: Omit<Sale, 'id'>) => Promise<void>;
+  onUpdateSale?: (sale: Sale) => Promise<void>;
+  initialData?: Sale | null;
   onCancel: () => void;
 }
 
@@ -17,7 +19,7 @@ interface SaleItem {
   error?: string;
 }
 
-const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
+const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialData, onCancel }) => {
   // Construct local YYYY-MM-DD for default date to avoid UTC issues
   const localDate = new Date();
   const defaultDateStr = localDate.getFullYear() + '-' +
@@ -26,22 +28,62 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
 
   // Common fields for the whole ticket
   const [commonData, setCommonData] = useState({
-    invoiceNumber: '',
-    customerName: '',
-    date: defaultDateStr,
+    invoiceNumber: initialData?.invoiceNumber || '',
+    customerName: initialData?.customerName || '',
+    date: initialData?.date || defaultDateStr,
   });
 
   // List of devices in this ticket
-  const [items, setItems] = useState<SaleItem[]>([
-    { tempId: Date.now(), brand: Brand.SAMSUNG, price: '' }
-  ]);
+  const [items, setItems] = useState<SaleItem[]>(
+    initialData
+      ? [{ tempId: Date.now(), brand: initialData.brand, price: initialData.price.toString() }]
+      : [{ tempId: Date.now(), brand: Brand.SAMSUNG, price: '' }]
+  );
 
-  const [ticketImage, setTicketImage] = useState<string | null>(null);
+  const [ticketImage, setTicketImage] = useState<string | null>(initialData?.ticketImage || null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showFullImage, setShowFullImage] = useState(false); // New state for modal
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- DRAFT PERSISTENCE ---
+  const clearDraft = () => localStorage.removeItem('sales_form_draft');
+
+  // Load draft on mount
+  useEffect(() => {
+    if (!initialData) {
+      const draft = localStorage.getItem('sales_form_draft');
+      if (draft) {
+        try {
+          const parsed = JSON.parse(draft);
+          // Simple validation before hydrating
+          if (parsed.commonData) setCommonData(parsed.commonData);
+          if (parsed.items && Array.isArray(parsed.items)) setItems(parsed.items);
+          if (parsed.ticketImage) setTicketImage(parsed.ticketImage);
+        } catch (e) {
+          console.error("Error loading draft", e);
+        }
+      }
+    }
+  }, []);
+
+  // Save draft on change
+  useEffect(() => {
+    if (!initialData) {
+      const draft = { commonData, items, ticketImage };
+      const timeoutId = setTimeout(() => {
+        try {
+          localStorage.setItem('sales_form_draft', JSON.stringify(draft));
+        } catch (e) {
+          // Silent fail (usually quota exceeded for large images)
+        }
+      }, 500); // Debounce saves
+      return () => clearTimeout(timeoutId);
+    }
+  }, [commonData, items, ticketImage, initialData]);
+  // -------------------------
 
   const calculateTotal = () => {
     return items.reduce((sum, item) => {
@@ -103,16 +145,44 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Guardar el archivo real para subirlo después
-      setSelectedFile(file);
+      setSelectedFile(file); // Keep track that a file was selected
 
-      // Crear preview para la UI y la IA
+      // Compress image
       const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setTicketImage(base64String);
-      };
       reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDimension = 1000;
+
+          // Resize logic
+          if (width > height) {
+            if (width > maxDimension) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            }
+          } else {
+            if (height > maxDimension) {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Compress to JPEG 0.7 quality (good balance)
+          // This significantly reduces size for upload
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          setTicketImage(compressedBase64);
+        };
+      };
     }
   };
 
@@ -129,6 +199,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
         // o dejamos que el usuario lo corrija. Por ahora aplicamos replace.
         invoiceNumber: (result.invoiceNumber || prev.invoiceNumber).replace(/\D/g, ''),
         date: result.date || prev.date,
+        customerName: result.customerName || prev.customerName,
       }));
 
       // Update the first item with analyzed data
@@ -143,8 +214,9 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
         return newItems;
       });
 
-    } catch (error) {
-      alert("No se pudo analizar el ticket automáticamente. Por favor ingrese los datos manualmente.");
+    } catch (error: any) {
+      console.error("Analysis Error:", error);
+      alert(error.message || "No se pudo analizar el ticket automáticamente. Por favor ingrese los datos manualmente.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -176,41 +248,67 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
       return;
     }
 
+    // MANDATORY PHOTO CHECK
+    if (!ticketImage) {
+      alert("⚠️ La foto del ticket es obligatoria para concluir la venta.");
+      return;
+    }
+
     setIsSubmitting(true);
     let finalImageUrl: string | undefined = undefined;
 
     // Upload Image logic
     // Upload Image logic (Google Apps Script)
-    if (ticketImage) { // Prefer the base64 preview we already have
-      try {
-        const filename = `Ticket Factura #${commonData.invoiceNumber} - ${commonData.customerName}`;
-        const uploadedUrl = await uploadImageToDriveScript(ticketImage, filename);
-        if (uploadedUrl) {
-          finalImageUrl = uploadedUrl;
-        } else {
-          alert("Advertencia: No se pudo subir la imagen a Google Drive.");
-        }
-      } catch (error) {
-        console.error("Error uploading:", error);
-        alert("Error al subir la imagen al script de Google. Verifica la consola.");
-        setIsSubmitting(false);
-        return;
+    try {
+      // If updating and there's a new file, and an old image exists on Drive
+      if (initialData && selectedFile && initialData.ticketImage && initialData.ticketImage.includes('google.com')) {
+        // FIRE AND FORGET: Do not await deletion, let it run in background to speed up UI
+        deleteImageFromDriveScript(initialData.ticketImage).catch(err => console.warn("Background delete failed", err));
       }
+
+      const filename = `Ticket Factura #${commonData.invoiceNumber} - ${commonData.customerName}`;
+      const uploadedUrl = await uploadImageToDriveScript(ticketImage, filename);
+      if (uploadedUrl) {
+        finalImageUrl = uploadedUrl;
+      } else {
+        alert("Advertencia: No se pudo subir la imagen a Google Drive.");
+      }
+    } catch (error) {
+      console.error("Error uploading:", error);
+      alert("Error al subir la imagen al script de Google. Verifica la consola.");
+      setIsSubmitting(false);
+      return;
     }
 
-    // Submit all items as separate sales sharing common data
+    // Submit logic
     try {
-      // We process sequentially or parallel. Parallel is fine.
-      await Promise.all(validatedItems.map(item => {
-        return onAddSale({
+      if (initialData && onUpdateSale) {
+        // EDIT MODE: Update single item
+        await onUpdateSale({
+          id: initialData.id,
           invoiceNumber: commonData.invoiceNumber,
           customerName: commonData.customerName,
           date: commonData.date,
-          price: parseFloat(item.price),
-          brand: item.brand,
-          ticketImage: finalImageUrl
+          price: parseFloat(items[0].price),
+          brand: items[0].brand,
+          ticketImage: finalImageUrl || initialData.ticketImage, // Keep old if no new one, or use new one
+          createdBy: initialData.createdBy
         });
-      }));
+      } else {
+        // CREATE MODE: Submit all items
+        // We process sequentially or parallel. Parallel is fine.
+        await Promise.all(validatedItems.map(item => {
+          return onAddSale({
+            invoiceNumber: commonData.invoiceNumber,
+            customerName: commonData.customerName,
+            date: commonData.date,
+            price: parseFloat(item.price),
+            brand: item.brand,
+            ticketImage: finalImageUrl
+          });
+        }));
+        clearDraft(); // Success! Clear saved state
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -222,10 +320,11 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
     <div className="bg-white rounded-xl shadow-lg p-6 max-w-3xl mx-auto border border-slate-100">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <Plus className="w-6 h-6 text-blue-600" />
-          Nueva Venta
+          {initialData ? <Edit2 className="w-6 h-6 text-blue-600" /> : <Plus className="w-6 h-6 text-blue-600" />}
+          {initialData ? 'Editar Venta' : 'Nueva Venta'}
         </h2>
-        <button onClick={onCancel} className="text-slate-400 hover:text-slate-600">
+
+        <button onClick={() => { clearDraft(); onCancel(); }} className="text-slate-400 hover:text-slate-600">
           <X className="w-6 h-6" />
         </button>
       </div>
@@ -373,10 +472,11 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
           <button
             type="button"
             onClick={handleAddItem}
-            className="mt-4 flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors border border-dashed border-blue-200 w-full md:w-auto justify-center"
+            disabled={!!initialData} // Disable adding items in Edit Mode
+            className={`mt-4 flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-lg transition-colors border border-dashed w-full md:w-auto justify-center ${initialData ? 'text-slate-400 border-slate-200 cursor-not-allowed' : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200'}`}
           >
             <Plus className="w-4 h-4" />
-            Agregar otro equipo al ticket
+            {initialData ? 'Edición de un solo item' : 'Agregar otro equipo al ticket'}
           </button>
         </div>
 
@@ -384,29 +484,72 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
         <div className="space-y-2 pt-4 border-t border-slate-100">
           <label className="block text-sm font-medium text-slate-700">Foto del Ticket (Opcional)</label>
           <div className="flex items-start gap-4">
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className={`
-                relative w-32 h-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-colors bg-white shrink-0 overflow-hidden
-                ${ticketImage ? 'border-blue-500' : 'border-slate-300 hover:bg-slate-50'}
-              `}
-            >
-              {ticketImage ? (
-                <img src={ticketImage} alt="Ticket preview" className="w-full h-full object-cover" />
-              ) : (
-                <>
-                  <Camera className="w-8 h-8 text-slate-400 mb-1" />
-                  <span className="text-xs text-slate-500 text-center px-1">Tomar Foto</span>
-                </>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={handleFileChange}
-              />
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-4">
+                <div
+                  className={`
+                    relative w-32 h-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center overflow-hidden bg-white shrink-0
+                    ${ticketImage ? 'border-blue-500' : 'border-slate-300'}
+                  `}
+                >
+                  {ticketImage ? (
+                    ticketImage.includes('google.com') || ticketImage.includes('drive.google') ? (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-500 text-xs text-center p-2 relative group">
+                        <span className="font-bold">Foto en la nube</span>
+                        <button
+                          type="button"
+                          className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => { e.stopPropagation(); setShowFullImage(true); }}
+                        >
+                          <Eye className="w-6 h-6 mb-1" />
+                          <span className="text-[10px] uppercase tracking-wider">Ver Foto</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative w-full h-full group">
+                        <img src={ticketImage} alt="Ticket preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => setShowFullImage(true)}
+                        >
+                          <Eye className="w-6 h-6 mb-1" />
+                          <span className="text-[10px]">Ampliar</span>
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <>
+                      <Camera className="w-8 h-8 text-slate-400 mb-1" />
+                      <span className="text-xs text-slate-500 text-center px-1">Sin foto</span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-bold transition-colors border border-slate-200"
+                  >
+                    {ticketImage ? 'Cambiar Foto' : 'Tomar Foto'}
+                  </button>
+                  {ticketImage && (ticketImage.includes('google.com') || ticketImage.includes('drive.google')) && (
+                    <p className="text-[10px] text-slate-400 max-w-[150px] leading-tight">
+                      La foto actual está guardada en la nube. Puedes cambiarla si lo deseas.
+                    </p>
+                  )}
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+              </div>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -432,7 +575,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
         <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={() => { clearDraft(); onCancel(); }}
             disabled={isSubmitting}
             className="px-6 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors bg-white border border-slate-200"
           >
@@ -444,11 +587,36 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onCancel }) => {
             className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all flex items-center gap-2 shadow-md shadow-blue-200 disabled:opacity-70 disabled:cursor-wait"
           >
             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-            {isSubmitting ? (selectedFile ? "Subiendo imagen..." : "Guardando...") : `Guardar Venta (${items.length})`}
+            {isSubmitting ? (selectedFile ? "Subiendo imagen..." : "Guardando...") : (initialData ? "Actualizar Venta" : `Guardar Venta (${items.length})`)}
           </button>
         </div>
-      </form >
-    </div >
+      </form>
+
+      {/* Full Image Modal */}
+      {showFullImage && ticketImage && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/95 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setShowFullImage(false)}>
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            <button
+              className="absolute -top-12 right-0 md:-right-12 text-white hover:text-slate-300 transition-colors p-2"
+              onClick={() => setShowFullImage(false)}
+            >
+              <X className="w-8 h-8" />
+            </button>
+
+            {ticketImage.includes('google.com') || ticketImage.includes('drive.google') ? (
+              <iframe
+                src={ticketImage.replace('uc?export=view&id=', 'file/d/').replace('/view', '/preview').includes('/preview') ? ticketImage : ticketImage.includes('file/d/') ? ticketImage.split('/view')[0] + '/preview' : `https://drive.google.com/file/d/${ticketImage.split('id=')[1]}/preview`}
+                className="w-full h-[80vh] rounded-xl shadow-2xl bg-white"
+                allow="autoplay"
+                title="Ticket Preview"
+              ></iframe>
+            ) : (
+              <img src={ticketImage} alt="Full Ticket" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
