@@ -2,10 +2,16 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { TicketAnalysisResult, Brand } from "../types";
 
 export const analyzeTicketImage = async (base64Image: string): Promise<TicketAnalysisResult> => {
+  // DEBUG: Verificar si la clave se está leyendo correctamente
+  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
+  console.log("[DEBUG] VITE_GEMINI_API_KEY presente:", !!envKey);
+
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY;
+
   if (!apiKey) {
-    console.warn("Gemini API Key is missing.");
-    throw new Error("Falta la API Key de Gemini. Configura VITE_GEMINI_API_KEY en tu archivo .env");
+    console.error("❌ ERROR CRÍTICO: No se encontró la API Key.");
+    console.log("Variables de entorno disponibles:", import.meta.env); // Ayuda a ver qué variables sí cargaron
+    throw new Error("Falta la API Key de Gemini. Configura VITE_GEMINI_API_KEY en tu archivo .env (Local) o en Settings > Environment Variables (Vercel).");
   }
 
   const candidateModels = [
