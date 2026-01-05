@@ -111,6 +111,7 @@ create policy "Users can delete own sales" on public.sales for delete to authent
 create policy "Authenticated users can view closings" on public.daily_closings for select to authenticated using (true);
 create policy "Authenticated users can insert closings" on public.daily_closings for insert to authenticated with check (true);
 create policy "Authenticated users can update closings" on public.daily_closings for update to authenticated using (true);
+create policy "Authenticated users can delete closings" on public.daily_closings for delete to authenticated using (true);
 
 -- Políticas de Perfiles
 drop policy if exists "Users can view own profile" on public.profiles;
