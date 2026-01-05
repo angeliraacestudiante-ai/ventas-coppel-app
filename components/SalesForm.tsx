@@ -255,29 +255,33 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
     }
 
     setIsSubmitting(true);
-    let finalImageUrl: string | undefined = undefined;
+    let finalImageUrl: string | undefined = ticketImage || undefined;
 
     // Upload Image logic
-    // Upload Image logic (Google Apps Script)
-    try {
-      // If updating and there's a new file, and an old image exists on Drive
-      if (initialData && selectedFile && initialData.ticketImage && initialData.ticketImage.includes('google.com')) {
-        // FIRE AND FORGET: Do not await deletion, let it run in background to speed up UI
-        deleteImageFromDriveScript(initialData.ticketImage).catch(err => console.warn("Background delete failed", err));
-      }
+    // Only upload if it is a NEW image (starts with data:)
+    if (ticketImage && ticketImage.startsWith('data:')) {
+      try {
+        // If updating and there's a new file, and an old image exists on Drive
+        if (initialData && initialData.ticketImage && initialData.ticketImage.includes('google.com')) {
+          // FIRE AND FORGET: Do not await deletion, let it run in background to speed up UI
+          deleteImageFromDriveScript(initialData.ticketImage).catch(err => console.warn("Background delete failed", err));
+        }
 
-      const filename = `Ticket Factura #${commonData.invoiceNumber} - ${commonData.customerName}`;
-      const uploadedUrl = await uploadImageToDriveScript(ticketImage, filename);
-      if (uploadedUrl) {
-        finalImageUrl = uploadedUrl;
-      } else {
-        alert("Advertencia: No se pudo subir la imagen a Google Drive.");
+        const filename = `Ticket Factura #${commonData.invoiceNumber} - ${commonData.customerName}`;
+        const uploadedUrl = await uploadImageToDriveScript(ticketImage, filename);
+        if (uploadedUrl) {
+          finalImageUrl = uploadedUrl;
+        } else {
+          alert("Advertencia: No se pudo subir la imagen a Google Drive.");
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Error uploading:", error);
+        alert("Error al subir la imagen al script de Google. Verifica la consola.");
+        setIsSubmitting(false);
+        return;
       }
-    } catch (error) {
-      console.error("Error uploading:", error);
-      alert("Error al subir la imagen al script de Google. Verifica la consola.");
-      setIsSubmitting(false);
-      return;
     }
 
     // Submit logic
