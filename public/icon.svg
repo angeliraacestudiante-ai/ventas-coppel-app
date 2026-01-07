@@ -1,5 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="100" fill="#2563eb"/>
-  <path d="M140 250 L230 340 L380 160" fill="none" stroke="white" stroke-width="50" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="50%" y="450" font-family="Arial, sans-serif" font-size="60" fill="white" text-anchor="middle" font-weight="bold">VENTAS</text>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  
+  <!-- Background Container -->
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#g)"/>
+  
+  <!-- Graph Bars -->
+  <g transform="translate(64, 64)" filter="url(#shadow)">
+    <!-- Bar 1 -->
+    <rect x="48" y="236" width="64" height="116" rx="12" fill="rgba(255,255,255,0.4)"/>
+    <!-- Bar 2 -->
+    <rect x="160" y="156" width="64" height="196" rx="12" fill="rgba(255,255,255,0.7)"/>
+    <!-- Bar 3 (Main) -->
+    <rect x="272" y="76" width="64" height="276" rx="12" fill="#ffffff"/>
+    
+    <!-- Accent Dot (Coppel Yellow) -->
+    <circle cx="304" cy="76" r="24" fill="#fbbf24"/>
+  </g>
 </svg>
