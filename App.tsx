@@ -117,6 +117,13 @@ create policy "Users can delete own sales" on public.sales for delete to authent
   public.is_admin()
 );
 
+-- Permitir editar si eres el creador O si eres admin (NECESARIO PARA NORMALIZAR FACTURAS)
+drop policy if exists "Authenticated users can update sales" on public.sales;
+create policy "Authenticated users can update sales" on public.sales for update to authenticated using (
+  auth.uid() = created_by OR
+  public.is_admin()
+);
+
 -- Nuevas Políticas de Cierres
 create policy "Authenticated users can view closings" on public.daily_closings for select to authenticated using (true);
 create policy "Authenticated users can insert closings" on public.daily_closings for insert to authenticated with check (true);

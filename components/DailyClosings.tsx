@@ -374,7 +374,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                                 >
                                   <td className="px-4 py-3 font-mono text-slate-500 group-hover/row:text-blue-600 flex items-center gap-2">
                                     {sale.ticketImage ? <ImageIcon className="w-3 h-3 text-blue-400" /> : <span className="w-3 inline-block"></span>}
-                                    {sale.invoiceNumber}
+                                    {sale.invoiceNumber.replace(/^#+/, '#')}
                                   </td>
                                   <td className="px-4 py-3 text-slate-700 font-medium">{sale.customerName}</td>
                                   <td className="px-4 py-3">
@@ -574,7 +574,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                     <Tag className="w-4 h-4" />
                     <span>Factura</span>
                   </div>
-                  <span className="font-mono font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs">{selectedSale.invoiceNumber}</span>
+                  <span className="font-mono font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs">{selectedSale.invoiceNumber.replace(/^#+/, '#')}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2 text-slate-500 text-sm">
@@ -691,7 +691,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                       className="hover:bg-blue-50/50 transition-colors cursor-pointer group/row"
                     >
                       <td className="px-6 py-4 font-mono text-slate-500 group-hover/row:text-blue-600 font-medium">
-                        {sale.invoiceNumber}
+                        {sale.invoiceNumber.replace(/^#+/, '#')}
                       </td>
                       <td className="px-6 py-4 text-slate-700 font-medium">{sale.customerName}</td>
                       <td className="px-6 py-4">

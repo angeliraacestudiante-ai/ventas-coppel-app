@@ -27,27 +27,47 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
     String(localDate.getMonth() + 1).padStart(2, '0') + '-' +
     String(localDate.getDate()).padStart(2, '0');
 
-  // Helper to ensure 1053- prefix format
+  // Helper to ensure #1053- prefix format (Strict)
   const formatInvoice = (val: string) => {
-    if (!val) return '1053-';
-    // If already correct format
-    if (/^1053-\d*$/.test(val)) return val;
+    if (!val) return '#1053-';
 
-    // Clean to just digits
-    const digits = val.replace(/\D/g, '');
+    // Clean to alphanumeric/dash only, removing existing hashes to normalize
+    let clean = val.replace(/#/g, '').trim();
 
-    // If starts with 1053 and is long enough, assume it includes prefix
-    if (digits.startsWith('1053') && digits.length > 4) {
-      return '1053-' + digits.slice(4);
+    // If starts with 1053-
+    if (/^1053-\d+$/.test(clean)) {
+      return '#' + clean;
     }
 
-    // Otherwise treat whole thing as suffix
-    return '1053-' + digits;
+    // Check if it starts with 1053 but no dash (e.g. 1053123)
+    if (/^1053\d+$/.test(clean)) {
+      // Insert dash? Users might just type 1053123. 
+      // We'll normalize to #1053-123
+      return '#1053-' + clean.substring(4);
+    }
+
+    // Just digits? Add #1053-
+    // But remove 1053 prefix if user blindly typed it without dash?
+    // Let's use simple logic: Remove 1053 if present at start, then prepend strict prefix.
+    clean = clean.replace(/[^0-9-]/g, ''); // Keep dash
+
+    // If user typed '1053-' manually
+    if (clean.startsWith('1053-')) {
+      return '#' + clean;
+    }
+
+    // If just digits
+    const digits = clean.replace(/\D/g, '');
+    if (digits.startsWith('1053') && digits.length > 4) {
+      return '#1053-' + digits.substring(4);
+    }
+
+    return '#1053-' + digits;
   };
 
   // Common fields for the whole ticket
   const [commonData, setCommonData] = useState({
-    invoiceNumber: initialData?.invoiceNumber ? formatInvoice(initialData.invoiceNumber) : '1053-',
+    invoiceNumber: initialData?.invoiceNumber ? formatInvoice(initialData.invoiceNumber) : '#1053-',
     customerName: initialData?.customerName || '',
     date: initialData?.date || defaultDateStr,
   });

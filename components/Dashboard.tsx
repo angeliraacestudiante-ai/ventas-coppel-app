@@ -621,20 +621,31 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
       <div className="flex justify-center pt-8 pb-4 gap-6">
         <button
           onClick={async () => {
-            if (!window.confirm("¿Deseas normalizar los números de factura?\n\nSe agregará '1053-' al inicio de todas las facturas que no lo tengan.")) return;
+            if (!window.confirm("¿CORREGIR DUPLICADOS Y NORMALIZAR?\n\nEsto arreglará facturas como '#1053-1053...' para dejarlas limpias como '#1053-XXXXXX'.")) return;
             try {
               const { data: allSales, error } = await supabase.from('sales').select('id, invoice_number');
               if (error) throw error;
               let count = 0;
               for (const s of allSales) {
-                const inv = s.invoice_number || '';
-                if (!inv.startsWith('1053-')) {
-                  const newInv = `1053-${inv}`;
-                  await supabase.from('sales').update({ invoice_number: newInv }).eq('id', s.id);
+                let raw = (s.invoice_number || '').trim();
+
+                // 1. Remove common separators (# and -) to get raw string
+                raw = raw.replace(/[#-]/g, '');
+
+                // 2. Recursively remove '1053' from start to strip usage like '10531053...'
+                while (raw.startsWith('1053')) {
+                  raw = raw.substring(4);
+                }
+
+                // 3. Construct strict format
+                const finalInv = `#1053-${raw}`;
+
+                if (s.invoice_number !== finalInv) {
+                  await supabase.from('sales').update({ invoice_number: finalInv }).eq('id', s.id);
                   count++;
                 }
               }
-              alert(`Proceso completado. Se actualizaron ${count} facturas.`);
+              alert(`Corrección completada. Se arreglaron ${count} facturas.`);
               window.location.reload();
             } catch (e: any) {
               alert("Error: " + e.message);
