@@ -45,6 +45,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
       3. Look strictly BELOW that line for "DESCTO P/PAQUETE" or "DESCTO PROMOCION" and a negative amount (e.g. -2662.00).
       4. SUBTRACT the discount from the base price. (e.g. 9499 - 2662 = 6837).
       5. Return the calculated final price.
+      * ERROR PREVENTION: IGNORE items that are NOT mobile phones. Do NOT include "CHIP", "RECARGA", "MICA", "FUNDA", "GARANTIA", or "SEGURO". Only include actual devices.
       * If multiple phones exist, return ALL of them in the list.`;
 
   const imagePart = {
