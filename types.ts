@@ -38,6 +38,7 @@ export interface TicketAnalysisResult {
   date?: string;
   brand?: Brand;
   customerName?: string;
+  items?: Array<{ brand: Brand; price: number }>;
 }
 
 export interface DailyClose {

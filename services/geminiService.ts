@@ -32,12 +32,18 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
 
   - invoiceNumber: The unique sales folio. Look for labels like "Factura No.", "Folio", "Docto", or "Ticket".
     * INSTRUCTION: specifically look for the pattern "1053 [DIGITS]" (e.g., "1053 801190" or "1053-801190"). Extract ONLY the unique suffix (e.g., "801190"). Ignore the "1053" part. Return strict numeric digits only.
-  - price: The final total amount paid (numeric). Look for "Total", "Neto", or "Venta".
+  
   - date: The purchase date (YYYY-MM-DD). Look for "Fecha".
-  - brand: The specific mobile device brand purchased.
-    * Options: SAMSUNG, APPLE, OPPO, ZTE, MOTOROLA, REALME, VIVO, XIAOMI, HONOR, HUAWEI, SENWA, NUBIA, OTRO.
-    * If the receipt mentions a model (e.g., 'iPhone'), map it to the brand (APPLE). If unsure, use OTRO.
-  - customerName: The customer's name. Look for "Cliente", "Nombre", or handwriting. Return formatted as "Title Case".`;
+  - customerName: The customer's name. Look for "Cliente", "Nombre", or handwriting. Return formatted as "Title Case".
+
+  - items: Detect EACH mobile phone sold in the ticket.
+    * INSTRUCTION: There might be multiple phones (e.g., two OPPOs). For each phone:
+      1. Identify the Brand (SAMSUNG, APPLE, OPPO, ETC).
+      2. Identify the MAIN PRICE listed next to the item description (e.g., 9499.00).
+      3. Look immediately below for any "DESCTO P/PAQUETE" or "DESCTO PROMOCION" (negative values like -2662.00).
+      4. CALCULATE the final price: (Main Price - Discount). Example: 9499.00 - 2662.00 = 6837.00.
+      5. Add to the list. ignore non-phone items like "CHIP" or "RECARGA".
+      * IMPORTANT: If no phones are detected, or logic is unclear, return empty list.`;
 
   const imagePart = {
     inlineData: {
@@ -61,8 +67,17 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
               invoiceNumber: { type: SchemaType.STRING },
               price: { type: SchemaType.NUMBER },
               date: { type: SchemaType.STRING },
-              brand: { type: SchemaType.STRING },
-              customerName: { type: SchemaType.STRING }
+              customerName: { type: SchemaType.STRING },
+              items: {
+                type: SchemaType.ARRAY,
+                items: {
+                  type: SchemaType.OBJECT,
+                  properties: {
+                    brand: { type: SchemaType.STRING },
+                    price: { type: SchemaType.NUMBER }
+                  }
+                }
+              }
             }
           }
         }
@@ -75,18 +90,17 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
       if (text) {
         const data = JSON.parse(text);
 
-        // Validate brand match
-        let matchedBrand = Brand.OTRO;
-        if (data.brand && Object.values(Brand).includes(data.brand as Brand)) {
-          matchedBrand = data.brand as Brand;
-        }
+        console.log(`Success with model: ${modelName}`, data);
 
-        console.log(`Success with model: ${modelName}`);
         return {
           invoiceNumber: data.invoiceNumber,
           price: data.price,
           date: data.date,
-          brand: matchedBrand,
+          items: data.items?.map((item: any) => {
+            let b = Brand.OTRO;
+            if (Object.values(Brand).includes(item.brand as Brand)) b = item.brand as Brand;
+            return { brand: b, price: item.price };
+          }),
           customerName: data.customerName
         };
       }

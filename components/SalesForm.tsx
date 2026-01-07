@@ -265,17 +265,26 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
         customerName: result.customerName || prev.customerName,
       }));
 
-      // Update the first item with analyzed data
-      setItems(prev => {
-        const newItems = [...prev];
-        if (newItems.length > 0) {
-          const firstItem = { ...newItems[0] };
-          if (result.price) firstItem.price = result.price.toString();
-          if (result.brand) firstItem.brand = result.brand;
-          newItems[0] = firstItem;
-        }
-        return newItems;
-      });
+      // Handle Multi-Item
+      if (result.items && result.items.length > 0) {
+        setItems(result.items.map((item, index) => ({
+          tempId: Date.now() + index,
+          brand: item.brand,
+          price: item.price.toString()
+        })));
+      } else {
+        // Fallback for single item legacy or manual price field
+        setItems(prev => {
+          const newItems = [...prev];
+          if (newItems.length > 0) {
+            const firstItem = { ...newItems[0] };
+            if (result.price) firstItem.price = result.price.toString();
+            if (result.brand) firstItem.brand = result.brand;
+            newItems[0] = firstItem;
+          }
+          return newItems;
+        });
+      }
 
     } catch (error: any) {
       console.error("Analysis Error:", error);
