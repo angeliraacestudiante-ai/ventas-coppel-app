@@ -374,7 +374,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
         }
 
         const filename = `Ticket Factura #${commonData.invoiceNumber} - ${commonData.customerName.toUpperCase()}`;
-        const uploadedUrl = await uploadImageToDriveScript(ticketImage, filename);
+        const uploadedUrl = await uploadImageToDriveScript(ticketImage, filename, commonData.date);
         if (uploadedUrl) {
           finalImageUrl = uploadedUrl;
         } else {

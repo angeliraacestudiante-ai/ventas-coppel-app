@@ -1,5 +1,5 @@
 
-export const uploadImageToDriveScript = async (base64Image: string, filename: string): Promise<string> => {
+export const uploadImageToDriveScript = async (base64Image: string, filename: string, date?: string): Promise<string> => {
     const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
 
     if (!scriptUrl) {
@@ -18,7 +18,8 @@ export const uploadImageToDriveScript = async (base64Image: string, filename: st
                 action: 'upload', // New action parameter
                 filename: filename,
                 file: cleanBase64,
-                mimeType: 'image/jpeg'
+                mimeType: 'image/jpeg',
+                date: date // Send date for folder organization
             }),
             headers: {
                 'Content-Type': 'text/plain;charset=utf-8',
