@@ -379,7 +379,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
         {/* 1. Brand Distribution (Global Count) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-slate-800">Marcas (Total Histórico)</h3>
+            <h3 className="text-base sm:text-lg font-bold text-slate-800">Marcas (Total Histórico)</h3>
             <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Por Unidades</span>
           </div>
 
@@ -443,7 +443,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
         {/* 2. Brand Revenue (Global Amount) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-slate-800">Ingresos por Marca</h3>
+            <h3 className="text-base sm:text-lg font-bold text-slate-800">Ingresos por Marca</h3>
             <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">Por Dinero</span>
           </div>
 
@@ -510,9 +510,9 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
             <PartyPopper className="w-32 h-32 text-orange-500 transform rotate-12" />
           </div>
           <div className="flex justify-between items-center mb-4 relative z-10">
-            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></div>
-              Distribución Hoy ({todayCount} equipos)
+            <h3 className="text-base sm:text-lg font-bold text-slate-800 flex flex-wrap items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0"></div>
+              <span>Distribución Hoy ({todayCount} equipos)</span>
             </h3>
             <span className="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full">Tiempo Real</span>
           </div>
@@ -589,7 +589,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
 
         {/* 4. Timeline Bar Chart (Restored) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[400px] xl:col-span-2">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Ingresos (Últimos 7 días)</h3>
+          <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-6">Ingresos (Últimos 7 días)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={timelineData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
