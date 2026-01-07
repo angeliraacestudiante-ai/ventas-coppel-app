@@ -28,12 +28,16 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   // Remove header if present (e.g., "data:image/jpeg;base64,")
   const base64Data = base64Image.split(',')[1] || base64Image;
 
-  const prompt = `Analyze this sales receipt image. Extract the following information in JSON format:
-            - invoiceNumber: The receipt or invoice number. IMPORTANT: Extract ONLY the last 6 digits of the main invoice number found. Ignore any prefixes like '1053' or letters. Just the 6 unique digits.
-            - price: The total amount paid (number).
-            - date: The date of purchase in YYYY-MM-DD format (string).
-            - brand: The likely mobile phone brand purchased if visible (enum string: SAMSUNG, APPLE, OPPO, ZTE, MOTOROLA, REALME, VIVO, XIAOMI, HONOR, HUAWEI, SENWA, NUBIA, OTRO). If unsure or mixed, use OTRO.
-            - customerName: The customer's name if visible. Look for a pattern like "Nombre: [Name]" or similar indicators. Return only the name.`;
+  const prompt = `You are an expert data extractor for Coppel store sales tickets. Analyze this image and extract the following in JSON format:
+
+  - invoiceNumber: The unique sales folio. Look for labels like "Folio", "Docto", "Ticket", or "Factura". It is usually a numeric sequence.
+    * INSTRUCTION: Return ONLY the unique 5-8 digits. Remove any "1053" prefix if present. Remove any "1053-" prefix. Remove any leading zeros. If you see a barcode, read the numbers below it as a fallback.
+  - price: The final total amount paid (numeric). Look for "Total", "Neto", or "Venta".
+  - date: The purchase date (YYYY-MM-DD). Look for "Fecha".
+  - brand: The specific mobile device brand purchased.
+    * Options: SAMSUNG, APPLE, OPPO, ZTE, MOTOROLA, REALME, VIVO, XIAOMI, HONOR, HUAWEI, SENWA, NUBIA, OTRO.
+    * If the receipt mentions a model (e.g., 'iPhone'), map it to the brand (APPLE). If unsure, use OTRO.
+  - customerName: The customer's name. Look for "Cliente", "Nombre", or handwriting. Return formatted as "Title Case".`;
 
   const imagePart = {
     inlineData: {
