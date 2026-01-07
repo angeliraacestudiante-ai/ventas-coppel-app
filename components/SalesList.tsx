@@ -238,7 +238,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onEdit, onAdd, r
                     >
                       {BRAND_CONFIGS[sale.brand].label}
                     </span>
-                    <span className="text-blue-600 text-xs font-mono font-bold tracking-wide">#{String(sale.invoiceNumber).replace(/[^0-9-]/g, '')}</span>
+                    <span className="text-slate-400 text-xs font-mono font-medium tracking-wide">#{String(sale.invoiceNumber).replace(/[^0-9-]/g, '')}</span>
                   </div>
 
                   <div>
