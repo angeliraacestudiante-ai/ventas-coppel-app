@@ -369,7 +369,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
             <p className="text-slate-500 text-sm font-bold">Marca Líder</p>
           </div>
           <h3 className="text-2xl font-bold text-slate-800 truncate">
-            {brandData.sort((a, b) => b.value - a.value)[0]?.name || 'N/A'}
+            {[...brandData].sort((a, b) => b.value - a.value)[0]?.name || 'N/A'}
           </h3>
           <p className="text-xs text-slate-400 mt-1">Mayor volumen de ventas</p>
         </div>
@@ -437,7 +437,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 w-full">
-                {brandDataToday.sort((a, b) => b.value - a.value).map(item => (
+                {[...brandDataToday].sort((a, b) => b.value - a.value).map(item => (
                   <div key={item.name} className="flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-md transition-all">
                     <div className="flex items-center gap-3 mb-2">
                       {item.logoUrl ? (
@@ -513,7 +513,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
             </div>
 
             <div className="flex flex-col gap-2 overflow-y-auto max-h-[250px] w-full pr-2 custom-scrollbar">
-              {brandData.sort((a, b) => b.value - a.value).map(item => (
+              {[...brandData].sort((a, b) => b.value - a.value).map(item => (
                 <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100/50 hover:bg-slate-100 transition-colors">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
@@ -577,7 +577,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
             </div>
 
             <div className="flex flex-col gap-2 overflow-y-auto max-h-[250px] w-full pr-2 custom-scrollbar">
-              {brandData.sort((a, b) => b.revenue - a.revenue).map(item => (
+              {[...brandData].sort((a, b) => b.revenue - a.revenue).map(item => (
                 <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100/50 hover:bg-slate-100 transition-colors">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
