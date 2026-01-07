@@ -15,11 +15,11 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   }
 
   const candidateModels = [
+    "gemini-1.5-pro",
     "gemini-1.5-flash",
     "gemini-2.0-flash",
     "gemini-2.0-flash-001",
     "gemini-2.0-flash-exp",
-    "gemini-1.5-pro",
     "gemini-2.5-flash"
   ];
 
@@ -37,13 +37,15 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   - customerName: The customer's name. Look for "Cliente", "Nombre", or handwriting. Return formatted as "Title Case".
 
   - items: Detect EACH mobile phone sold in the ticket.
-    * INSTRUCTION: There might be multiple phones (e.g., two OPPOs). For each phone:
+    * INSTRUCTION: Scan the ENTIRE ticket from top, to middle, to bottom. Do not stop after the first item.
+    * Look for SKU numbers (6 digit codes like "222664") to identify distinct items.
+    * For each phone found:
       1. Identify the Brand (SAMSUNG, APPLE, OPPO, ETC).
-      2. Identify the MAIN PRICE listed next to the item description (e.g., 9499.00).
-      3. Look immediately below for any "DESCTO P/PAQUETE" or "DESCTO PROMOCION" (negative values like -2662.00).
-      4. CALCULATE the final price: (Main Price - Discount). Example: 9499.00 - 2662.00 = 6837.00.
-      5. Add to the list. ignore non-phone items like "CHIP" or "RECARGA".
-      * IMPORTANT: If no phones are detected, or logic is unclear, return empty list.`;
+      2. Identify the BASE PRICE to the right (e.g., 9499.00).
+      3. Look strictly BELOW that line for "DESCTO P/PAQUETE" or "DESCTO PROMOCION" and a negative amount (e.g. -2662.00).
+      4. SUBTRACT the discount from the base price. (e.g. 9499 - 2662 = 6837).
+      5. Return the calculated final price.
+      * If multiple phones exist, return ALL of them in the list.`;
 
   const imagePart = {
     inlineData: {
