@@ -242,7 +242,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onEdit, onAdd, r
                   </div>
 
                   <div>
-                    <h3 className="font-bold text-slate-800 text-lg leading-tight mb-1">{sale.customerName}</h3>
+                    <h3 className="font-bold text-slate-800 text-lg leading-tight mb-1">{sale.customerName.toUpperCase()}</h3>
                     <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
                       <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {sale.date}</span>
                       <span className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded text-slate-600">
