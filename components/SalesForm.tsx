@@ -396,7 +396,11 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
         // EDIT MODE: Update single item
         await onUpdateSale({
           id: initialData.id,
-          invoiceNumber: commonData.invoiceNumber,
+          invoiceNumber: (() => {
+            let c = commonData.invoiceNumber.replace(/[^0-9]/g, '');
+            if (c.startsWith('1053') && c.length > 4) c = c.substring(4);
+            return `#1053-${c}`;
+          })(),
           customerName: commonData.customerName.toUpperCase(),
           date: commonData.date,
           price: parseFloat(items[0].price),
@@ -409,7 +413,11 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
         // We process sequentially or parallel. Parallel is fine.
         await Promise.all(validatedItems.map(item => {
           return onAddSale({
-            invoiceNumber: commonData.invoiceNumber,
+            invoiceNumber: (() => {
+              let c = commonData.invoiceNumber.replace(/[^0-9]/g, '');
+              if (c.startsWith('1053') && c.length > 4) c = c.substring(4);
+              return `#1053-${c}`;
+            })(),
             customerName: commonData.customerName.toUpperCase(),
             date: commonData.date,
             price: parseFloat(item.price),
