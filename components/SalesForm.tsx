@@ -364,7 +364,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
           deleteImageFromDriveScript(initialData.ticketImage).catch(err => console.warn("Background delete failed", err));
         }
 
-        const filename = `Ticket Factura #${commonData.invoiceNumber} - ${commonData.customerName}`;
+        const filename = `Ticket Factura #${commonData.invoiceNumber} - ${commonData.customerName.toUpperCase()}`;
         const uploadedUrl = await uploadImageToDriveScript(ticketImage, filename);
         if (uploadedUrl) {
           finalImageUrl = uploadedUrl;
@@ -388,7 +388,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
         await onUpdateSale({
           id: initialData.id,
           invoiceNumber: commonData.invoiceNumber,
-          customerName: commonData.customerName,
+          customerName: commonData.customerName.toUpperCase(),
           date: commonData.date,
           price: parseFloat(items[0].price),
           brand: items[0].brand,
@@ -401,7 +401,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
         await Promise.all(validatedItems.map(item => {
           return onAddSale({
             invoiceNumber: commonData.invoiceNumber,
-            customerName: commonData.customerName,
+            customerName: commonData.customerName.toUpperCase(),
             date: commonData.date,
             price: parseFloat(item.price),
             brand: item.brand,
