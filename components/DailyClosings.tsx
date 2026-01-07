@@ -372,10 +372,10 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                                   onClick={() => setSelectedSale(sale)}
                                   className="hover:bg-blue-50/50 transition-colors cursor-pointer group/row"
                                 >
-                                  <td className="px-4 py-3 font-mono text-slate-500 group-hover/row:text-blue-600 flex items-center gap-2">
-                                    {sale.ticketImage ? <ImageIcon className="w-3 h-3 text-blue-400" /> : <span className="w-3 inline-block"></span>}
-                                    {sale.invoiceNumber.replace(/^#+/, '#')}
-                                  </td>
+                                  <span className="text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wide flex items-center gap-1">
+                                    {sale.ticketImage && <ImageIcon className="w-3 h-3 text-blue-400" />}
+                                    #{String(sale.invoiceNumber).replace(/[^0-9-]/g, '')}
+                                  </span>
                                   <td className="px-4 py-3 text-slate-700 font-medium">{sale.customerName}</td>
                                   <td className="px-4 py-3">
                                     <span
@@ -468,8 +468,8 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                         </div>
                       </div>
 
-                      <div className={`text-slate-300 md:ml-4 transition-transform duration-300 ${isExpanded ? 'rotate-180 text-indigo-500' : 'group-hover:text-slate-400'}`}>
-                        <ChevronDown className="w-6 h-6" />
+                      <div className={`w-8 h-8 flex items-center justify-center rounded-full text-slate-300 md:ml-4 transition-transform duration-300 origin-center ${isExpanded ? 'rotate-180 text-indigo-600 bg-indigo-100' : 'group-hover:text-slate-400'}`}>
+                        <ChevronDown className="w-5 h-5" />
                       </div>
                     </div>
 
@@ -574,7 +574,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                     <Tag className="w-4 h-4" />
                     <span>Factura</span>
                   </div>
-                  <span className="font-mono font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs">{selectedSale.invoiceNumber.replace(/^#+/, '#')}</span>
+                  <span className="text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs font-mono font-bold tracking-wide">#{String(selectedSale.invoiceNumber).replace(/[^0-9-]/g, '')}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2 text-slate-500 text-sm">
@@ -615,24 +615,34 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                     )}
                   </h4>
                   <div className="bg-slate-100 rounded-xl overflow-hidden p-1">
-                    {selectedSale.ticketImage.includes('google.com') || selectedSale.ticketImage.includes('drive.google') ? (
-                      <iframe
-                        src={selectedSale.ticketImage.replace('uc?export=view&id=', 'file/d/').replace('/view', '/preview').includes('/preview')
-                          ? selectedSale.ticketImage
-                          : selectedSale.ticketImage.includes('file/d/')
-                            ? selectedSale.ticketImage.split('/view')[0] + '/preview'
-                            : `https://drive.google.com/file/d/${selectedSale.ticketImage.split('id=')[1] || ''}/preview`}
-                        className="w-full h-64 md:h-96 rounded-lg object-contain bg-white"
-                        allow="autoplay"
-                        title="Ticket Preview"
-                      ></iframe>
-                    ) : (
-                      <img
-                        src={selectedSale.ticketImage}
-                        alt="Ticket"
-                        className="w-full h-auto object-contain rounded-lg"
-                      />
-                    )}
+                    {(() => {
+                      const url = selectedSale.ticketImage;
+                      const driveIdMatch = url.match(/[-\w]{25,}/);
+                      const isDrive = (url.includes('google.com') || url.includes('drive.google')) && driveIdMatch;
+
+                      if (isDrive && driveIdMatch) {
+                        return (
+                          <iframe
+                            src={`https://drive.google.com/file/d/${driveIdMatch[0]}/preview`}
+                            className="w-full h-64 md:h-96 rounded-lg object-contain bg-white border-0"
+                            allow="autoplay"
+                            title="Ticket Preview"
+                          ></iframe>
+                        );
+                      } else {
+                        return (
+                          <img
+                            src={url}
+                            alt="Ticket"
+                            className="w-full h-auto object-contain rounded-lg"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              (e.target as HTMLImageElement).parentElement!.innerHTML += '<p class="text-center text-slate-400 text-sm p-4">Error al cargar la imagen</p>';
+                            }}
+                          />
+                        );
+                      }
+                    })()}
                   </div>
                 </div>
               )}
@@ -691,7 +701,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                       className="hover:bg-blue-50/50 transition-colors cursor-pointer group/row"
                     >
                       <td className="px-6 py-4 font-mono text-slate-500 group-hover/row:text-blue-600 font-medium">
-                        {sale.invoiceNumber.replace(/^#+/, '#')}
+                        <span className="text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs font-mono font-bold tracking-wide">#{String(sale.invoiceNumber).replace(/[^0-9-]/g, '')}</span>
                       </td>
                       <td className="px-6 py-4 text-slate-700 font-medium">{sale.customerName}</td>
                       <td className="px-6 py-4">
