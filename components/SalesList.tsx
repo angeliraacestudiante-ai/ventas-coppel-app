@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Image as ImageIcon, Calendar, User, Tag, Trash2, Eye, DollarSign, TrendingUp, Smartphone, MoreHorizontal, Edit2 } from 'lucide-react';
+import { Search, Image as ImageIcon, Calendar, User, Tag, Trash2, Eye, DollarSign, TrendingUp, Smartphone, MoreHorizontal, Edit2, X, Share2 } from 'lucide-react';
 import { Sale, Brand } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 
@@ -300,25 +300,67 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onEdit, onAdd, r
 
       {/* Image Modal */}
       {selectedImage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setSelectedImage(null)}>
-          <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/95 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setSelectedImage(null)}>
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-0 right-0 p-4 flex gap-3 pointer-events-none z-50">
+              {selectedImage && (
+                <button
+                  className="pointer-events-auto bg-slate-900 text-white p-3 rounded-full hover:bg-slate-800 transition-colors shadow-xl border border-slate-700"
+                  onClick={async () => {
+                    try {
+                      if (!navigator.share) {
+                        alert("Función no disponible");
+                        return;
+                      }
+
+                      // Try to share as file if possible
+                      if (selectedImage.startsWith('data:')) {
+                        const res = await fetch(selectedImage);
+                        const blob = await res.blob();
+                        const file = new File([blob], 'ticket-venta.jpg', { type: 'image/jpeg' });
+
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                          await navigator.share({
+                            files: [file],
+                            title: 'Ticket',
+                            text: 'Ticket de Venta'
+                          });
+                          return;
+                        }
+                      }
+
+                      // Fallback URL
+                      await navigator.share({
+                        title: 'Ticket',
+                        url: selectedImage
+                      });
+
+                    } catch (err) {
+                      console.error(err);
+                    }
+                  }}
+                >
+                  <Share2 className="w-6 h-6" />
+                </button>
+              )}
+              <button
+                className="pointer-events-auto bg-slate-900 text-white p-3 rounded-full hover:bg-slate-800 transition-colors shadow-xl border border-slate-700"
+                onClick={() => setSelectedImage(null)}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
             {selectedImage.includes('google.com') || selectedImage.includes('drive.google') ? (
               <iframe
                 src={selectedImage.replace('uc?export=view&id=', 'file/d/').replace('/view', '/preview').includes('/preview') ? selectedImage : selectedImage.includes('file/d/') ? selectedImage.split('/view')[0] + '/preview' : `https://drive.google.com/file/d/${selectedImage.split('id=')[1]}/preview`}
                 className="w-full h-[80vh] rounded-xl shadow-2xl bg-white"
                 allow="autoplay"
+                title="Ticket Preview"
               ></iframe>
             ) : (
-              <img src={selectedImage} alt="Ticket Full" className="w-full h-full object-contain rounded-xl shadow-2xl" />
+              <img src={selectedImage} alt="Ticket Full" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" />
             )}
-            <button
-              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-md transition-colors"
-              onClick={() => setSelectedImage(null)}
-            >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
         </div>
       )}

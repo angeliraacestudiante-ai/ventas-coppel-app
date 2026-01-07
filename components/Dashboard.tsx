@@ -146,19 +146,34 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
   // --- CHARTS DATA ---
   const brandData = Object.values(Brand).map(brand => {
     const brandSales = sales.filter(s => s.brand === brand);
+    const revenue = brandSales.reduce((sum, s) => sum + s.price, 0);
     return {
       name: BRAND_CONFIGS[brand].label,
       value: brandSales.length,
+      revenue: revenue,
       color: BRAND_CONFIGS[brand].hex,
-      revenue: brandSales.reduce((sum, s) => sum + s.price, 0)
+      logoUrl: BRAND_CONFIGS[brand].logoUrl
     };
   }).filter(item => item.value > 0);
 
-  const today = new Date();
+  const now = new Date();
+  const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  const todayCount = sales.filter(s => s.date === todayStr).length;
+
+  const brandDataToday = Object.values(Brand).map(brand => {
+    const bSales = sales.filter(s => s.brand === brand && s.date === todayStr);
+    return {
+      name: BRAND_CONFIGS[brand].label,
+      value: bSales.length,
+      color: BRAND_CONFIGS[brand].hex,
+      logoUrl: BRAND_CONFIGS[brand].logoUrl
+    };
+  }).filter(item => item.value > 0);
+
   const timelineData = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
+    const d = new Date(now);
     d.setDate(d.getDate() - (6 - i));
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     const dailySales = sales.filter(s => s.date === dateStr);
     return {
       date: dateStr,
@@ -308,7 +323,22 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
       </div>
 
       {/* Stats Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+        {/* TODAY Stats */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500 rounded-full blur-[40px] opacity-20"></div>
+          <div className="flex items-center gap-3 mb-3 relative z-10">
+            <div className="p-2 bg-orange-50 rounded-lg">
+              <PartyPopper className="w-5 h-5 text-orange-600" />
+            </div>
+            <p className="text-slate-500 text-sm font-bold">Ventas de Hoy</p>
+          </div>
+          <h3 className="text-3xl font-extrabold text-slate-800 relative z-10">{todayCount}</h3>
+          <p className="text-xs text-orange-500 font-medium mt-1 relative z-10">
+            {todayCount > 0 ? "¡Sigue así!" : "Sin ventas aún"}
+          </p>
+        </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-indigo-50 rounded-lg">
@@ -345,63 +375,220 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Brand Distribution Chart (Count) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[400px]">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Distribución por Marca (Cantidad)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={brandData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {brandData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                formatter={(value: number) => [`${value} ventas`, 'Cantidad']}
-              />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* 1. Brand Distribution (Global Count) */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-slate-800">Marcas (Total Histórico)</h3>
+            <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Por Unidades</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row flex-1 gap-6 items-center">
+            <div className="w-full sm:w-1/2 h-[200px] shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={brandData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={75}
+                    paddingAngle={3}
+                    dataKey="value"
+                    labelLine={false}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+                      if (percent < 0.08) return null;
+                      const RADIAN = Math.PI / 180;
+                      const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      return (
+                        <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">
+                          {brandData[index].value}
+                        </text>
+                      );
+                    }}
+                  >
+                    {brandData.map((entry, index) => (
+                      <Cell key={`cell-g-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number, name: string, props: any) => [`${value} un.`, props.payload.name]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="flex flex-col gap-2 overflow-y-auto max-h-[250px] w-full pr-2 custom-scrollbar">
+              {brandData.sort((a, b) => b.value - a.value).map(item => (
+                <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100/50 hover:bg-slate-100 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-sm font-semibold text-slate-700">{item.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-slate-900">{item.value}</span>
+                    <span className="text-xs text-slate-400 w-9 text-right">
+                      {Math.round((item.value / sales.length) * 100)}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Brand Revenue Chart (Amount) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[400px]">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Ingresos por Marca</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={brandData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={5}
-                dataKey="revenue"
-              >
-                {brandData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                formatter={(value: number) => [`$${value.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`, 'Ingreso']}
-              />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+        {/* 2. Brand Revenue (Global Amount) */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-slate-800">Ingresos por Marca</h3>
+            <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">Por Dinero</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row flex-1 gap-6 items-center">
+            <div className="w-full sm:w-1/2 h-[200px] shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={brandData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={75}
+                    paddingAngle={3}
+                    dataKey="revenue"
+                    labelLine={false}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+                      if (percent < 0.1) return null;
+                      const RADIAN = Math.PI / 180;
+                      const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      return (
+                        <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight="bold">
+                          {brandData[index].value}
+                        </text>
+                      );
+                    }}
+                  >
+                    {brandData.map((entry, index) => (
+                      <Cell key={`cell-r-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number, name: string, props: any) => [`$${value.toLocaleString('es-MX')}`, props.payload.name]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="flex flex-col gap-2 overflow-y-auto max-h-[250px] w-full pr-2 custom-scrollbar">
+              {brandData.sort((a, b) => b.revenue - a.revenue).map(item => (
+                <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100/50 hover:bg-slate-100 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-sm font-semibold text-slate-700">{item.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-slate-900">${(item.revenue / 1000).toFixed(1)}k</span>
+                    <span className="text-xs text-slate-400 w-9 text-right">
+                      {Math.round((item.revenue / totalRevenue) * 100)}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Sales Trend Chart */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[400px] lg:col-span-2">
+        {/* 3. TODAY'S Brand Distribution (New) */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col xl:col-span-2 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+            <PartyPopper className="w-32 h-32 text-orange-500 transform rotate-12" />
+          </div>
+          <div className="flex justify-between items-center mb-4 relative z-10">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></div>
+              Distribución Hoy ({todayCount} equipos)
+            </h3>
+            <span className="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full">Tiempo Real</span>
+          </div>
+
+          {todayCount > 0 ? (
+            <div className="flex flex-col sm:flex-row flex-1 gap-8 items-center relative z-10">
+              <div className="w-full sm:w-1/3 h-[200px] shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={brandDataToday}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={75}
+                      paddingAngle={3}
+                      dataKey="value"
+                      labelLine={false}
+                      label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+                        if (percent < 0.05) return null;
+                        const RADIAN = Math.PI / 180;
+                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                        return (
+                          <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">
+                            {brandDataToday[index].value}
+                          </text>
+                        );
+                      }}
+                    >
+                      {brandDataToday.map((entry, index) => (
+                        <Cell key={`cell-t-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value: number, name: string, props: any) => [`${value} un.`, props.payload.name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 w-full">
+                {brandDataToday.sort((a, b) => b.value - a.value).map(item => (
+                  <div key={item.name} className="flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-md transition-all">
+                    <div className="flex items-center gap-3 mb-2">
+                      {item.logoUrl ? (
+                        <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full p-1.5 shadow-sm border border-slate-100 shrink-0">
+                          <img src={item.logoUrl} alt={item.name} className="w-full h-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      )}
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider truncate break-all">{item.name}</span>
+                    </div>
+                    <div className="flex items-end justify-between pl-1">
+                      <span className="text-xl font-extrabold text-slate-800 leading-none">{item.value}</span>
+                      <span className="text-xs font-medium text-slate-400">
+                        {Math.round((item.value / todayCount) * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-200 m-4">
+              <PartyPopper className="w-10 h-10 mb-2 opacity-50" />
+              No hay ventas registradas hoy
+            </div>
+          )}
+        </div>
+
+        {/* 4. Timeline Bar Chart (Restored) */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[400px] xl:col-span-2">
           <h3 className="text-lg font-bold text-slate-800 mb-6">Ingresos (Últimos 7 días)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={timelineData}>
@@ -430,9 +617,35 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
         </div>
       </div>
 
-
       {/* DANGER ZONE */}
-      <div className="flex justify-center pt-8 pb-4">
+      <div className="flex justify-center pt-8 pb-4 gap-6">
+        <button
+          onClick={async () => {
+            if (!window.confirm("¿Deseas normalizar los números de factura?\n\nSe agregará '1053-' al inicio de todas las facturas que no lo tengan.")) return;
+            try {
+              const { data: allSales, error } = await supabase.from('sales').select('id, invoice_number');
+              if (error) throw error;
+              let count = 0;
+              for (const s of allSales) {
+                const inv = s.invoice_number || '';
+                if (!inv.startsWith('1053-')) {
+                  const newInv = `1053-${inv}`;
+                  await supabase.from('sales').update({ invoice_number: newInv }).eq('id', s.id);
+                  count++;
+                }
+              }
+              alert(`Proceso completado. Se actualizaron ${count} facturas.`);
+              window.location.reload();
+            } catch (e: any) {
+              alert("Error: " + e.message);
+            }
+          }}
+          className="flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-colors text-xs font-bold px-4 py-2 hover:bg-blue-50 rounded-lg group"
+        >
+          <Edit2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+          Normalizar Facturas (1053)
+        </button>
+
         <button
           onClick={handleFactoryReset}
           className="flex items-center gap-2 text-slate-400 hover:text-red-600 transition-colors text-xs font-bold px-4 py-2 hover:bg-red-50 rounded-lg group"
@@ -441,7 +654,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
           Restablecer Aplicación (Danger Zone)
         </button>
       </div>
-    </div >
+    </div>
   );
 };
 

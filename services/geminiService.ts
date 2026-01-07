@@ -29,10 +29,10 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   const base64Data = base64Image.split(',')[1] || base64Image;
 
   const prompt = `Analyze this sales receipt image. Extract the following information in JSON format:
-            - invoiceNumber: The receipt or invoice number (string). MIRA BIEN LA IMAGEN
+            - invoiceNumber: The receipt or invoice number. IMPORTANT: Extract ONLY the last 6 digits of the main invoice number found. Ignore any prefixes like '1053' or letters. Just the 6 unique digits.
             - price: The total amount paid (number).
             - date: The date of purchase in YYYY-MM-DD format (string).
-            - brand: The likely mobile phone brand purchased if visible (enum string: SAMSUNG, APPLE, OPPO, ZTE, MOTOROLA, REALME, VIVO, XIAOMI, HONOR, HUAWEI, SENWA, OTRO). If unsure or mixed, use OTRO.
+            - brand: The likely mobile phone brand purchased if visible (enum string: SAMSUNG, APPLE, OPPO, ZTE, MOTOROLA, REALME, VIVO, XIAOMI, HONOR, HUAWEI, SENWA, NUBIA, OTRO). If unsure or mixed, use OTRO.
             - customerName: The customer's name if visible. Look for a pattern like "Nombre: [Name]" or similar indicators. Return only the name.`;
 
   const imagePart = {

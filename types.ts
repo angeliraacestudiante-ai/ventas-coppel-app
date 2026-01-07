@@ -10,6 +10,7 @@ export enum Brand {
   HONOR = 'HONOR',
   HUAWEI = 'HUAWEI',
   SENWA = 'SENWA',
+  NUBIA = 'NUBIA',
   OTRO = 'OTRO'
 }
 
@@ -28,6 +29,7 @@ export interface BrandConfig {
   label: string;
   colorClass: string;
   hex: string;
+  logoUrl?: string;
 }
 
 export interface TicketAnalysisResult {

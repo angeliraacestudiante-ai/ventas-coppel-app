@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Camera, Loader2, Save, X, Sparkles, Trash2, Smartphone, Edit2, Eye } from 'lucide-react'; // Added Eye icon
+import { Plus, Camera, Loader2, Save, X, Sparkles, Trash2, Smartphone, Edit2, Eye, Share2 } from 'lucide-react'; // Added Eye and Share2 icons
 import { Brand, Sale } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 import { analyzeTicketImage } from '../services/geminiService';
@@ -27,9 +27,27 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
     String(localDate.getMonth() + 1).padStart(2, '0') + '-' +
     String(localDate.getDate()).padStart(2, '0');
 
+  // Helper to ensure 1053- prefix format
+  const formatInvoice = (val: string) => {
+    if (!val) return '1053-';
+    // If already correct format
+    if (/^1053-\d*$/.test(val)) return val;
+
+    // Clean to just digits
+    const digits = val.replace(/\D/g, '');
+
+    // If starts with 1053 and is long enough, assume it includes prefix
+    if (digits.startsWith('1053') && digits.length > 4) {
+      return '1053-' + digits.slice(4);
+    }
+
+    // Otherwise treat whole thing as suffix
+    return '1053-' + digits;
+  };
+
   // Common fields for the whole ticket
   const [commonData, setCommonData] = useState({
-    invoiceNumber: initialData?.invoiceNumber || '',
+    invoiceNumber: initialData?.invoiceNumber ? formatInvoice(initialData.invoiceNumber) : '1053-',
     customerName: initialData?.customerName || '',
     date: initialData?.date || defaultDateStr,
   });
@@ -105,10 +123,35 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
   const handleCommonChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
 
-    // Validación estricta: Solo números para el número de factura
+    // Validation: Prefix 1053- logic
     if (name === 'invoiceNumber') {
-      const numericValue = value.replace(/\D/g, ''); // Elimina todo lo que no sea dígito
-      setCommonData(prev => ({ ...prev, [name]: numericValue }));
+      // Remove 1053- prefix if present to get just the user input part
+      let inputVal = value;
+
+      // If user tries to delete the prefix, enforce it back
+      if (!inputVal.startsWith('1053-')) {
+        // Check if they deleted the dash or part of 1053
+        const digits = inputVal.replace(/\D/g, ''); // all digits
+        // If they have less than 4 digits, it means they deleted part of '1053'. Reset to '1053-'
+        // But we also want to capture if they pasted '1053800'
+        if (digits.startsWith('1053') && digits.length >= 4) {
+          inputVal = '1053-' + digits.slice(4);
+        } else {
+          // Just reconstruct from whatever digits are after the imaginary prefix
+          // This is tricky. simpler: get everything after '1053-'?
+          // If the user selects all and types '6', value is '6'. 
+          // We want '1053-6'.
+          inputVal = '1053-' + digits.replace(/^1053/, '');
+        }
+      }
+
+      // Extract suffix (everything after 1053-)
+      let suffix = inputVal.replace(/^1053-/, '').replace(/\D/g, '');
+
+      // Limit to 6 digits
+      if (suffix.length > 6) suffix = suffix.slice(0, 6);
+
+      setCommonData(prev => ({ ...prev, [name]: '1053-' + suffix }));
       return;
     }
 
@@ -196,9 +239,8 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
 
       setCommonData(prev => ({
         ...prev,
-        // Limpiamos invoiceNumber si viene de la IA para asegurar que solo sean números si es necesario,
-        // o dejamos que el usuario lo corrija. Por ahora aplicamos replace.
-        invoiceNumber: (result.invoiceNumber || prev.invoiceNumber).replace(/\D/g, ''),
+        // IA devuelve solo 6 dígitos (instrucción nueva). Si devuelve más, limpiamos.
+        invoiceNumber: result.invoiceNumber ? `1053-${result.invoiceNumber.replace(/\D/g, '').slice(-6)}` : prev.invoiceNumber,
         date: result.date || prev.date,
         customerName: result.customerName || prev.customerName,
       }));
@@ -388,7 +430,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
                 value={commonData.invoiceNumber}
                 onChange={handleCommonChange}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
-                placeholder="Solo números (Ej. 123456)"
+                placeholder="1053-XXXXXX"
                 required
               />
             </div>
@@ -522,7 +564,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
         {/* SECTION 3: TICKET IMAGE */}
         <div className="space-y-2 pt-4 border-t border-slate-100">
           <label className="block text-sm font-medium text-slate-700">Foto del Ticket (Opcional)</label>
-          <div className="flex items-start gap-4">
+          <div className="flex flex-col md:flex-row items-start gap-4">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-4">
                 <div
@@ -635,12 +677,55 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
       {showFullImage && ticketImage && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/95 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setShowFullImage(false)}>
           <div className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center" onClick={e => e.stopPropagation()}>
-            <button
-              className="absolute -top-12 right-0 md:-right-12 text-white hover:text-slate-300 transition-colors p-2"
-              onClick={() => setShowFullImage(false)}
-            >
-              <X className="w-8 h-8" />
-            </button>
+            <div className="absolute top-0 right-0 p-4 flex gap-3 pointer-events-none z-50">
+              {ticketImage && (
+                <button
+                  className="pointer-events-auto bg-slate-900 text-white p-3 rounded-full hover:bg-slate-800 transition-colors shadow-xl border border-slate-700"
+                  onClick={async () => {
+                    try {
+                      if (!navigator.share) {
+                        alert("Función no disponible en este dispositivo");
+                        return;
+                      }
+
+                      // Try to share as file if possible (Base64)
+                      if (ticketImage.startsWith('data:')) {
+                        const res = await fetch(ticketImage);
+                        const blob = await res.blob();
+                        const file = new File([blob], `ticket-${commonData.invoiceNumber || 'venta'}.jpg`, { type: 'image/jpeg' });
+
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                          await navigator.share({
+                            files: [file],
+                            title: 'Ticket de Venta',
+                            text: `Factura #${commonData.invoiceNumber}`
+                          });
+                          return;
+                        }
+                      }
+
+                      // Fallback: Share URL (Drive links or if file share fails)
+                      await navigator.share({
+                        title: 'Ticket de Venta',
+                        text: `Factura #${commonData.invoiceNumber}`,
+                        url: ticketImage
+                      });
+
+                    } catch (err) {
+                      console.error("Error al compartir:", err);
+                    }
+                  }}
+                >
+                  <Share2 className="w-6 h-6" />
+                </button>
+              )}
+              <button
+                className="pointer-events-auto bg-slate-900 text-white p-3 rounded-full hover:bg-slate-800 transition-colors shadow-xl border border-slate-700"
+                onClick={() => setShowFullImage(false)}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
             {ticketImage.includes('google.com') || ticketImage.includes('drive.google') ? (
               <iframe

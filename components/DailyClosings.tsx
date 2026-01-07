@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { CalendarCheck, DollarSign, ShoppingBag, Clock, ChevronDown, ChevronUp, Lock, Receipt, X, User, Tag, Calendar, Image as ImageIcon, CalendarRange, Layers, Filter, XCircle, ArrowRight } from 'lucide-react';
+import { CalendarCheck, DollarSign, ShoppingBag, Clock, ChevronDown, ChevronUp, Lock, Receipt, X, User, Tag, Calendar, Image as ImageIcon, CalendarRange, Layers, Filter, XCircle, ArrowRight, Share2 } from 'lucide-react';
 import { Sale, DailyClose, Brand } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 
@@ -284,7 +284,9 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
             ) : (
               filteredClosings.map((close) => {
                 const isExpanded = expandedId === close.id;
-                const dateObj = new Date(close.date);
+                // Fix timezone issue by parsing parts manually
+                const [cYear, cMonth, cDay] = close.date.split('-').map(Number);
+                const dateObj = new Date(cYear, cMonth - 1, cDay);
                 const daySales = sales.filter(s => s.date === close.date);
 
                 return (
@@ -333,7 +335,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                         </div>
 
                         <div className="hidden md:block text-right">
-                          {close.topBrand !== 'N/A' && (
+                          {close.topBrand !== 'N/A' && BRAND_CONFIGS[close.topBrand as Brand] && (
                             <span
                               className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wide ${BRAND_CONFIGS[close.topBrand as Brand].colorClass}`}
                               style={BRAND_CONFIGS[close.topBrand as Brand].colorClass.includes('text-black') ? { color: 'black' } : {}}
@@ -489,10 +491,19 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                             >
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-slate-100 group-hover/day:bg-blue-100 flex items-center justify-center font-bold text-slate-600 group-hover/day:text-blue-600 text-sm transition-colors">
-                                  {new Date(close.date).getDate() + 1 /* Fix timezone offset visual simply or just use UTCDay? Actually the date string is YYYY-MM-DD. Let's stick to parsing segments to be safe or use the existing safe logic if any. The previous logic used new Date(close.date).getDate(). JS dates are tricky. I'll stick to parsing manually or simple new Date if it works for them. User's local time is what matters. I'll rely on the existing rendering logic which was: new Date(close.date).getDate() */}
+                                  {(() => {
+                                    const [dYear, dMonth, dDay] = close.date.split('-').map(Number);
+                                    return dDay;
+                                  })()}
                                 </div>
                                 <div>
-                                  <p className="font-bold text-sm text-slate-800 group-hover/day:text-blue-700">{new Date(close.date).toLocaleDateString('es-MX', { weekday: 'long' })}</p>
+                                  <p className="font-bold text-sm text-slate-800 group-hover/day:text-blue-700">
+                                    {(() => {
+                                      const [dYear, dMonth, dDay] = close.date.split('-').map(Number);
+                                      const dDate = new Date(dYear, dMonth - 1, dDay);
+                                      return dDate.toLocaleDateString('es-MX', { weekday: 'long' });
+                                    })()}
+                                  </p>
                                   <p className="text-xs text-slate-500">{close.totalSales} ventas</p>
                                 </div>
                               </div>
@@ -576,16 +587,52 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
 
               {selectedSale.ticketImage && (
                 <div className="mt-6">
-                  <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm">
-                    <ImageIcon className="w-4 h-4 text-blue-500" />
-                    Evidencia Adjunta
+                  <h4 className="font-bold text-slate-800 mb-3 flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-blue-500" />
+                      Evidencia Adjunta
+                    </div>
+                    {selectedSale.ticketImage && (selectedSale.ticketImage.includes('http') || selectedSale.ticketImage.includes('google')) && (
+                      <button
+                        onClick={() => {
+                          const url = selectedSale.ticketImage!;
+                          if (navigator.share) {
+                            navigator.share({
+                              title: `Ticket - ${selectedSale.invoiceNumber}`,
+                              text: `Ticket de venta para ${selectedSale.customerName}`,
+                              url: url
+                            }).catch(console.error);
+                          } else {
+                            navigator.clipboard.writeText(url);
+                            alert("Enlace copiado al portapapeles");
+                          }
+                        }}
+                        className="text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-1.5 rounded-lg transition-colors"
+                        title="Compartir Imagen"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </h4>
                   <div className="bg-slate-100 rounded-xl overflow-hidden p-1">
-                    <img
-                      src={selectedSale.ticketImage}
-                      alt="Ticket"
-                      className="w-full h-auto object-contain rounded-lg"
-                    />
+                    {selectedSale.ticketImage.includes('google.com') || selectedSale.ticketImage.includes('drive.google') ? (
+                      <iframe
+                        src={selectedSale.ticketImage.replace('uc?export=view&id=', 'file/d/').replace('/view', '/preview').includes('/preview')
+                          ? selectedSale.ticketImage
+                          : selectedSale.ticketImage.includes('file/d/')
+                            ? selectedSale.ticketImage.split('/view')[0] + '/preview'
+                            : `https://drive.google.com/file/d/${selectedSale.ticketImage.split('id=')[1] || ''}/preview`}
+                        className="w-full h-64 md:h-96 rounded-lg object-contain bg-white"
+                        allow="autoplay"
+                        title="Ticket Preview"
+                      ></iframe>
+                    ) : (
+                      <img
+                        src={selectedSale.ticketImage}
+                        alt="Ticket"
+                        className="w-full h-auto object-contain rounded-lg"
+                      />
+                    )}
                   </div>
                 </div>
               )}
