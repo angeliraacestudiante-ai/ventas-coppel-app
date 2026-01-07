@@ -238,7 +238,14 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onEdit, onAdd, r
                     >
                       {BRAND_CONFIGS[sale.brand].label}
                     </span>
-                    <span className="text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs font-mono font-bold tracking-wide">#{String(sale.invoiceNumber).replace(/[^0-9-]/g, '')}</span>
+                    <span className="text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs font-mono font-bold tracking-wide">
+                      #{(() => {
+                        const clean = String(sale.invoiceNumber).replace(/[^0-9]/g, '');
+                        return clean.startsWith('1053') && clean.length > 4
+                          ? `1053-${clean.substring(4)}`
+                          : `1053-${clean}`;
+                      })()}
+                    </span>
                   </div>
 
                   <div>
