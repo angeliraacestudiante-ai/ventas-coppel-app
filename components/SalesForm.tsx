@@ -472,7 +472,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
                 type="text"
                 name="customerName"
                 value={commonData.customerName}
-                onChange={handleCommonChange}
+                onChange={(e) => setCommonData(prev => ({ ...prev, customerName: e.target.value.toUpperCase() }))}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
                 placeholder="Nombre completo"
                 required
