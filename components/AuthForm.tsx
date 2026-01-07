@@ -21,8 +21,8 @@ const AuthForm: React.FC = () => {
       if (error) throw error;
     } catch (err: any) {
       // Mensaje de error más amigable para el usuario
-      const msg = err.message === 'Invalid login credentials' 
-        ? 'Correo o contraseña incorrectos.' 
+      const msg = err.message === 'Invalid login credentials'
+        ? 'Correo o contraseña incorrectos.'
         : err.message || 'Error al iniciar sesión';
       setError(msg);
     } finally {
@@ -32,7 +32,7 @@ const AuthForm: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans relative overflow-hidden">
-      
+
       {/* Background decoration */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-[100px]"></div>
@@ -40,17 +40,15 @@ const AuthForm: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative z-10">
-        
+
         <div className="p-8 md:p-10 w-full">
           <div className="text-center mb-8">
             {/* Logo Section Restored to Text/Icon */}
-            <div className="flex items-center justify-center gap-3 mb-6">
-               <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
-                 <Smartphone className="w-7 h-7 text-white" />
-               </div>
-               <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Ventas Telcel</h1>
+            <div className="flex flex-col items-center justify-center gap-4 mb-6">
+              <img src="/pwa-icon.png" alt="Logo" className="w-24 h-24 object-contain drop-shadow-lg" />
+              <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Ventas Telcel</h1>
             </div>
-            
+
             <div className="flex items-center justify-center gap-1.5 mt-2 bg-slate-100 py-1 px-3 rounded-full w-fit mx-auto">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <p className="text-slate-500 text-xs font-semibold tracking-wide uppercase">
@@ -92,8 +90,8 @@ const AuthForm: React.FC = () => {
 
             {error && (
               <div className="p-3 rounded-lg bg-red-50 text-red-600 text-xs font-bold border border-red-100 flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
-                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
-                 {error}
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
+                {error}
               </div>
             )}
 
