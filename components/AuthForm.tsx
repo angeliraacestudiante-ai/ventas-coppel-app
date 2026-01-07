@@ -45,7 +45,7 @@ const AuthForm: React.FC = () => {
           <div className="text-center mb-8">
             {/* Logo Section Restored to Text/Icon */}
             <div className="flex flex-col items-center justify-center gap-4 mb-6">
-              <img src="/pwa-icon.png" alt="Logo" className="w-24 h-24 object-contain drop-shadow-lg" />
+              <img src="/pwa-icon.png" alt="Logo" className="w-24 h-24 object-contain drop-shadow-lg rounded-full" />
               <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Ventas Telcel</h1>
             </div>
 
