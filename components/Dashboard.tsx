@@ -509,12 +509,19 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
           <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
             <PartyPopper className="w-32 h-32 text-orange-500 transform rotate-12" />
           </div>
-          <div className="flex justify-between items-center mb-4 relative z-10">
-            <h3 className="text-base sm:text-lg font-bold text-slate-800 flex flex-wrap items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0"></div>
-              <span>Distribución Hoy ({todayCount} equipos)</span>
-            </h3>
-            <span className="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full">Tiempo Real</span>
+          <div className="flex items-start justify-between mb-4 relative z-10">
+            <div className="flex flex-col">
+              <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0"></div>
+                Distribución Hoy
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium ml-4 mt-0.5">
+                ({todayCount} equipos)
+              </p>
+            </div>
+            <span className="text-[10px] sm:text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full shrink-0 mt-0.5">
+              Tiempo Real
+            </span>
           </div>
 
           {todayCount > 0 ? (
