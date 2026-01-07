@@ -666,8 +666,8 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
 
       {/* Mobile Header */}
       <div className="md:hidden bg-slate-900 text-white p-4 flex items-center justify-between shadow-md sticky top-0 z-20">
-        <div className="flex items-center gap-2 font-bold text-lg">
-          <Smartphone className="w-6 h-6 text-blue-400" />
+        <div className="flex items-center gap-3 font-bold text-lg">
+          <img src="/pwa-icon.png" alt="Logo" className="w-8 h-8 object-contain drop-shadow-sm" />
           <span>Ventas Telcel</span>
         </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-300 hover:text-white">
@@ -683,11 +683,9 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
         {/* Sidebar Header */}
         <div className="p-6 md:p-8 flex items-center justify-between">
           <div className="flex flex-col gap-2 w-full">
-            {/* Restored Text Logo */}
+            {/* App Logo */}
             <div className="flex items-center gap-3 px-2">
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/50">
-                <Smartphone className="w-6 h-6 text-white" />
-              </div>
+              <img src="/pwa-icon.png" alt="Logo" className="w-12 h-12 object-contain drop-shadow-lg" />
               <span className="text-xl font-bold text-white tracking-tight">Ventas Telcel</span>
             </div>
             <p className="text-slate-500 text-[10px] font-bold tracking-widest text-center mt-4">PANEL DE CONTROL</p>
