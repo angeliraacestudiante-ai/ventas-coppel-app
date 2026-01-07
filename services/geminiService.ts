@@ -30,8 +30,8 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
 
   const prompt = `You are an expert data extractor for Coppel store sales tickets. Analyze this image and extract the following in JSON format:
 
-  - invoiceNumber: The unique sales folio. Look for labels like "Folio", "Docto", "Ticket", or "Factura". It is usually a numeric sequence.
-    * INSTRUCTION: Return ONLY the unique 5-8 digits. Remove any "1053" prefix if present. Remove any "1053-" prefix. Remove any leading zeros. If you see a barcode, read the numbers below it as a fallback.
+  - invoiceNumber: The unique sales folio. Look for labels like "Factura No.", "Folio", "Docto", or "Ticket".
+    * INSTRUCTION: specifically look for the pattern "1053 [DIGITS]" (e.g., "1053 801190" or "1053-801190"). Extract ONLY the unique suffix (e.g., "801190"). Ignore the "1053" part. Return strict numeric digits only.
   - price: The final total amount paid (numeric). Look for "Total", "Neto", or "Venta".
   - date: The purchase date (YYYY-MM-DD). Look for "Fecha".
   - brand: The specific mobile device brand purchased.
