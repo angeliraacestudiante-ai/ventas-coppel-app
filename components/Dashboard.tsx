@@ -145,7 +145,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
 
   // --- CHARTS DATA ---
   const brandData = Object.values(Brand).map(brand => {
-    const brandSales = sales.filter(s => s.brand === brand);
+    const brandSales = sales.filter(s => s.brand === brand && s.date.startsWith(currentMonthPrefix));
     const revenue = brandSales.reduce((sum, s) => sum + s.price, 0);
     return {
       name: BRAND_CONFIGS[brand].label,
@@ -376,10 +376,101 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* 1. Brand Distribution (Global Count) */}
+
+        {/* 1. TODAY'S Brand Distribution (Moved to Top) */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col xl:col-span-2 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+            <PartyPopper className="w-32 h-32 text-orange-500 transform rotate-12" />
+          </div>
+          <div className="flex items-start justify-between mb-4 relative z-10">
+            <div className="flex flex-col">
+              <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0"></div>
+                Distribución Hoy
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium ml-4 mt-0.5">
+                ({todayCount} equipos)
+              </p>
+            </div>
+            <span className="text-[10px] sm:text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full shrink-0 mt-0.5">
+              Tiempo Real
+            </span>
+          </div>
+
+          {todayCount > 0 ? (
+            <div className="flex flex-col sm:flex-row flex-1 gap-8 items-center relative z-10">
+              <div className="w-full sm:w-1/3 h-[200px] shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={brandDataToday}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={75}
+                      paddingAngle={3}
+                      dataKey="value"
+                      labelLine={false}
+                      label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+                        if (percent < 0.05) return null;
+                        const RADIAN = Math.PI / 180;
+                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                        return (
+                          <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">
+                            {brandDataToday[index].value}
+                          </text>
+                        );
+                      }}
+                    >
+                      {brandDataToday.map((entry, index) => (
+                        <Cell key={`cell-t-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value: number, name: string, props: any) => [`${value} un.`, props.payload.name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 w-full">
+                {brandDataToday.sort((a, b) => b.value - a.value).map(item => (
+                  <div key={item.name} className="flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-md transition-all">
+                    <div className="flex items-center gap-3 mb-2">
+                      {item.logoUrl ? (
+                        <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full p-1.5 shadow-sm border border-slate-100 shrink-0">
+                          <img src={item.logoUrl} alt={item.name} className="w-full h-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      )}
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider truncate break-all">{item.name}</span>
+                    </div>
+                    <div className="flex items-end justify-between pl-1">
+                      <span className="text-xl font-extrabold text-slate-800 leading-none">{item.value}</span>
+                      <span className="text-xs font-medium text-slate-400">
+                        {Math.round((item.value / todayCount) * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-200 m-4">
+              <PartyPopper className="w-10 h-10 mb-2 opacity-50" />
+              No hay ventas registradas hoy
+            </div>
+          )}
+        </div>
+
+        {/* 2. Brand Distribution (Monthly) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-base sm:text-lg font-bold text-slate-800">Marcas (Total Histórico)</h3>
+            <h3 className="text-base sm:text-lg font-bold text-slate-800">Marcas (Mes Actual)</h3>
             <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Por Unidades</span>
           </div>
 
@@ -504,95 +595,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
           </div>
         </div>
 
-        {/* 3. TODAY'S Brand Distribution (New) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col xl:col-span-2 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-            <PartyPopper className="w-32 h-32 text-orange-500 transform rotate-12" />
-          </div>
-          <div className="flex items-start justify-between mb-4 relative z-10">
-            <div className="flex flex-col">
-              <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0"></div>
-                Distribución Hoy
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium ml-4 mt-0.5">
-                ({todayCount} equipos)
-              </p>
-            </div>
-            <span className="text-[10px] sm:text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full shrink-0 mt-0.5">
-              Tiempo Real
-            </span>
-          </div>
 
-          {todayCount > 0 ? (
-            <div className="flex flex-col sm:flex-row flex-1 gap-8 items-center relative z-10">
-              <div className="w-full sm:w-1/3 h-[200px] shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={brandDataToday}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={75}
-                      paddingAngle={3}
-                      dataKey="value"
-                      labelLine={false}
-                      label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
-                        if (percent < 0.05) return null;
-                        const RADIAN = Math.PI / 180;
-                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                        return (
-                          <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">
-                            {brandDataToday[index].value}
-                          </text>
-                        );
-                      }}
-                    >
-                      {brandDataToday.map((entry, index) => (
-                        <Cell key={`cell-t-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      formatter={(value: number, name: string, props: any) => [`${value} un.`, props.payload.name]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 w-full">
-                {brandDataToday.sort((a, b) => b.value - a.value).map(item => (
-                  <div key={item.name} className="flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-md transition-all">
-                    <div className="flex items-center gap-3 mb-2">
-                      {item.logoUrl ? (
-                        <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full p-1.5 shadow-sm border border-slate-100 shrink-0">
-                          <img src={item.logoUrl} alt={item.name} className="w-full h-full object-contain" />
-                        </div>
-                      ) : (
-                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                      )}
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider truncate break-all">{item.name}</span>
-                    </div>
-                    <div className="flex items-end justify-between pl-1">
-                      <span className="text-xl font-extrabold text-slate-800 leading-none">{item.value}</span>
-                      <span className="text-xs font-medium text-slate-400">
-                        {Math.round((item.value / todayCount) * 100)}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-200 m-4">
-              <PartyPopper className="w-10 h-10 mb-2 opacity-50" />
-              No hay ventas registradas hoy
-            </div>
-          )}
-        </div>
 
         {/* 4. Timeline Bar Chart (Restored) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[400px] xl:col-span-2">
