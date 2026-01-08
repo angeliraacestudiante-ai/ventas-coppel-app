@@ -322,8 +322,8 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
       return;
     }
 
-    // MANDATORY PHOTO CHECK
-    if (!ticketImage) {
+    // MANDATORY PHOTO CHECK (Except for Admin)
+    if (!ticketImage && role !== 'admin') {
       alert("⚠️ La foto del ticket es obligatoria para concluir la venta.");
       return;
     }

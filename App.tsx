@@ -24,7 +24,33 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('app_current_view', currentView);
+
+    // --- HISTORY API INTEGRATION (Back Gesture) ---
+    // Update history when view changes programmatically
+    const currentState = window.history.state;
+    if (currentState?.view !== currentView) {
+      window.history.pushState({ view: currentView }, '');
+    }
   }, [currentView]);
+
+  // Listen for PopState (Back Button)
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.view) {
+        setCurrentView(event.state.view);
+        // Clear edit state if leaving form
+        if (event.state.view !== 'form') {
+          setSaleToEdit(null);
+        }
+      } else {
+        // Fallback if no state (e.g. initial load)
+        setCurrentView('list');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   const [sales, setSales] = useState<Sale[]>([]);
   const [closings, setClosings] = useState<DailyClose[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

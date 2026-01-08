@@ -19,19 +19,25 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
   // Date Filter State
   const [dateFilter, setDateFilter] = useState({ start: '', end: '' });
 
+  // MANUAL DATE SELECTION FOR RETROACTIVE CLOSING
+  const [manualDate, setManualDate] = useState('');
+
   // Construct YYYY-MM-DD in local time manually
   const localDate = new Date();
   const todayStr = localDate.getFullYear() + '-' +
     String(localDate.getMonth() + 1).padStart(2, '0') + '-' +
     String(localDate.getDate()).padStart(2, '0');
 
-  // Calculate today's stats live
-  const todaysSales = sales.filter(s => s.date === todayStr);
-  const todayRevenue = todaysSales.reduce((sum, s) => sum + s.price, 0);
-  const todayCount = todaysSales.length;
+  // Determine which date we are closing (Default: Today)
+  const targetDateStr = manualDate || todayStr;
 
-  // Find top brand for today
-  const brandCounts = todaysSales.reduce((acc, sale) => {
+  // Calculate stats for the TARGET date (Live Preview)
+  const targetSales = sales.filter(s => s.date === targetDateStr);
+  const targetRevenue = targetSales.reduce((sum, s) => sum + s.price, 0);
+  const targetCount = targetSales.length;
+
+  // Find top brand for TARGET date
+  const brandCounts = targetSales.reduce((acc, sale) => {
     acc[sale.brand] = (acc[sale.brand] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -115,24 +121,22 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
   };
 
   const handlePerformClose = () => {
-    if (todayCount === 0) {
-      alert("No hay ventas registradas para el día de hoy.");
+    if (targetCount === 0) {
+      alert(`No hay ventas registradas para la fecha ${targetDateStr}.`);
       return;
     }
 
-    const topBrandCount = topBrandToday ? brandCounts[topBrandToday] : 0;
-    const topBrandName = topBrandToday ? BRAND_CONFIGS[topBrandToday].label : 'N/A';
-
-    if (window.confirm("¿Estás seguro de que deseas realizar el corte del día?")) {
+    if (window.confirm(`¿Estás seguro de que deseas realizar el corte del día ${targetDateStr}?`)) {
       const newClose: DailyClose = {
         id: crypto.randomUUID(),
-        date: todayStr,
-        totalSales: todayCount,
-        totalRevenue: todayRevenue,
+        date: targetDateStr,
+        totalSales: targetCount,
+        totalRevenue: targetRevenue,
         closedAt: new Date().toISOString(),
         topBrand: topBrandToday || 'N/A' as any
       };
       onCloseDay(newClose);
+      setManualDate(''); // Reset after close
     }
   };
 
@@ -153,30 +157,43 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
   return (
     <div className="space-y-8 pb-12">
 
-      {/* Current Day Panel */}
+      {/* Current/Manual Day Panel */}
       <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl shadow-xl overflow-hidden text-white relative">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
 
         <div className="p-6 md:p-8 relative z-10">
-          <div className="flex justify-between items-start mb-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <div>
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 <CalendarCheck className="w-6 h-6 text-blue-400" />
-                Cierre del Día
+                {manualDate ? 'Cierre Retroactivo' : 'Cierre del Día'}
               </h2>
-              <p className="text-slate-400 text-sm mt-1">{new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="date"
+                  value={manualDate}
+                  onChange={(e) => setManualDate(e.target.value)}
+                  className="bg-slate-800/50 border border-slate-600 rounded-lg px-3 py-1 text-sm text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                  title="Seleccionar fecha para cierre manual"
+                />
+                {manualDate && (
+                  <button onClick={() => setManualDate('')} className="text-slate-400 hover:text-white text-xs underline">
+                    Volver a Hoy
+                  </button>
+                )}
+              </div>
             </div>
-            <span className="bg-blue-600/30 border border-blue-500/50 text-blue-100 px-3 py-1 rounded-full text-xs font-mono font-bold">
-              HOY
+            <span className={`border px-3 py-1 rounded-full text-xs font-mono font-bold ${manualDate ? 'bg-orange-500/20 border-orange-500/50 text-orange-200' : 'bg-blue-600/30 border-blue-500/50 text-blue-100'}`}>
+              {manualDate ? targetDateStr : 'HOY'}
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Ventas Hoy</p>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Ventas {manualDate ? 'del día' : 'Hoy'}</p>
               <div className="flex items-center gap-2">
                 <ShoppingBag className="w-5 h-5 text-blue-400" />
-                <span className="text-3xl font-bold">{todayCount}</span>
+                <span className="text-3xl font-bold">{targetCount}</span>
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
@@ -184,7 +201,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
               <div className="flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-green-400" />
                 <span className="text-3xl font-bold">
-                  ${todayRevenue.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  ${targetRevenue.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
               </div>
             </div>
@@ -205,16 +222,16 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
 
           <button
             onClick={handlePerformClose}
-            disabled={todayCount === 0}
+            disabled={targetCount === 0}
             className={`
               w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold transition-all shadow-lg
-              ${todayCount > 0
+              ${targetCount > 0
                 ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/50 hover:shadow-blue-900/70 hover:-translate-y-0.5'
                 : 'bg-slate-700 text-slate-500 cursor-not-allowed'}
             `}
           >
             <Lock className="w-4 h-4" />
-            Realizar Corte del Día
+            Realizar Corte del Día {manualDate ? `(${manualDate})` : ''}
           </button>
         </div>
       </div>
@@ -305,7 +322,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                       </div>
 
                       {/* Info Grid */}
-                      <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-y-4 gap-x-4 items-center">
+                      <div className="flex-1 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-4 gap-x-4 items-center">
                         <div className="col-span-2 md:col-span-1">
                           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Día</p>
                           <p className="font-semibold text-slate-800 capitalize">{dateObj.toLocaleDateString('es-MX', { weekday: 'long' })}</p>
@@ -356,6 +373,25 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                     {isExpanded && (
                       <div className="border-t border-slate-100 bg-slate-50/50 p-4 md:p-6 animate-in slide-in-from-top-2 duration-300">
                         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                          {/* BRAND STATS SUMMARY */}
+                          <div className="p-4 bg-slate-50 border-b border-slate-200">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Estadística por Marcas</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(
+                                daySales.reduce((acc, s) => {
+                                  acc[s.brand] = (acc[s.brand] || 0) + 1;
+                                  return acc;
+                                }, {} as Record<string, number>)
+                              ).sort((a, b) => b[1] - a[1]).map(([brand, count]) => (
+                                <div key={brand} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-100 shadow-sm">
+                                  <span className={`w-2 h-2 rounded-full ${BRAND_CONFIGS[brand as Brand]?.colorClass?.split(' ')[0] || 'bg-slate-500'}`} style={{ backgroundColor: BRAND_CONFIGS[brand as Brand]?.hex }}></span>
+                                  <span className="text-xs font-bold text-slate-700">{BRAND_CONFIGS[brand as Brand]?.label || brand}</span>
+                                  <span className="text-xs font-mono text-slate-400 bg-slate-100 px-1.5 rounded ml-1">{count}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
                           <table className="w-full text-sm text-left">
                             <thead className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider">
                               <tr>

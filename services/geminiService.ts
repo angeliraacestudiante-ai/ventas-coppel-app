@@ -125,9 +125,27 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   // If we get here, all models failed
   console.error("All models failed. Last error:", lastError);
 
-  if (lastError?.message?.includes("429")) {
-    throw new Error("Cuota excedida (Error 429). Has alcanzado el límite de peticiones gratuitas por hoy. Intenta más tarde o mañana.");
+  const errorMessage = lastError?.message || lastError?.toString() || "";
+
+  if (errorMessage.includes("429")) {
+    throw new Error("⏳ Cuota excedida (Error 429). Has alcanzado el límite diario de la IA. Por favor ingresa los datos manualmente hoy.");
   }
 
-  throw lastError || new Error("No se pudo analizar el ticket con ningún modelo disponible.");
+  if (errorMessage.includes("503")) {
+    throw new Error("🚧 Servidores saturados (Error 503). La IA está temporalmente no disponible por alta demanda. Intenta de nuevo en unos minutos.");
+  }
+
+  if (errorMessage.includes("509")) {
+    throw new Error("📉 Límite de ancho de banda (Error 509). Es posible que tu red o el servicio estén limitados. Intenta con otra conexión o espera un momento.");
+  }
+
+  if (errorMessage.includes("500")) {
+    throw new Error("💥 Error interno de Google (Error 500). Algo falló en los servidores de IA. Intenta de nuevo.");
+  }
+
+  if (errorMessage.includes("API key")) {
+     throw new Error("🔑 Error de configuración. La API Key no es válida o no se encuentra.");
+  }
+
+  throw new Error("⚠️ No se pudo leer el ticket automáticamente. Por favor ingresa los datos manualmente. (Detalle: " + (errorMessage.slice(0, 50)) + "...)");
 };
