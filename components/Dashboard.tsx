@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, ComposedChart, Line } from 'recharts';
-import { Target, Edit2, Check, TrendingUp, Trophy, PartyPopper, DollarSign, Smartphone } from 'lucide-react';
+import { Target, Edit2, Check, TrendingUp, Trophy, PartyPopper, DollarSign, Smartphone, Trash2, Share2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import { Sale, Brand, DailyClose } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 import { supabase } from '../services/supabaseClient';
@@ -12,6 +13,45 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
+  const todayRef = useRef<HTMLDivElement>(null);
+
+  const handleShareToday = async () => {
+    if (!todayRef.current) return;
+    try {
+      const canvas = await html2canvas(todayRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true // Important for logos
+      });
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `ventas-hoy-${new Date().toLocaleDateString().replace(/\//g, '-')}.png`, { type: 'image/png' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Resumen de Ventas de Hoy',
+              text: 'Aquí está el desglose de ventas del día.'
+            });
+          } catch (e) {
+            // User cancelled or error
+            console.log('Share cancelled');
+          }
+        } else {
+          // Fallback
+          const link = document.createElement('a');
+          link.href = canvas.toDataURL('image/png');
+          link.download = file.name;
+          link.click();
+        }
+      });
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo generar la captura.");
+    }
+  };
+
   const handleFactoryReset = async () => {
     if (window.confirm("⚠️ ¿ESTÁS SEGURO? \n\nEsto borrará TODAS las ventas y EL HISTORIAL DE CIERRES de la base de datos permanentemente.\n\nLa aplicación quedará vacía como nueva.")) {
       const confirm2 = window.prompt("Escribe 'BORRAR' para confirmar la acción:");
@@ -379,11 +419,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
         {/* 1. TODAY'S Brand Distribution (Moved to Top) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col xl:col-span-2 relative overflow-hidden">
+        <div ref={todayRef} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col xl:col-span-2 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
             <PartyPopper className="w-32 h-32 text-orange-500 transform rotate-12" />
           </div>
-          <div className="flex items-start justify-between mb-4 relative z-10">
+          <div className="flex items-start justify-between mb-4 relative z-10 w-full">
             <div className="flex flex-col">
               <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0"></div>
@@ -393,13 +433,22 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
                 ({todayCount} equipos)
               </p>
             </div>
-            <span className="text-[10px] sm:text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full shrink-0 mt-0.5">
-              Tiempo Real
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] sm:text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full shrink-0">
+                Tiempo Real
+              </span>
+              <button
+                onClick={handleShareToday}
+                className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                title="Compartir Resumen"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {todayCount > 0 ? (
-            <div className="flex flex-col sm:flex-row flex-1 gap-8 items-center relative z-10">
+            <div className="flex flex-col sm:flex-row flex-1 gap-8 items-center relative z-10 bg-white">
               <div className="w-full sm:w-1/3 h-[200px] shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
