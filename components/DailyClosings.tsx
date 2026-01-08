@@ -7,9 +7,10 @@ interface DailyClosingsProps {
   sales: Sale[];
   closings: DailyClose[];
   onCloseDay: (close: DailyClose) => void;
+  role?: string;
 }
 
-const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseDay }) => {
+const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseDay, role }) => {
   const [activeTab, setActiveTab] = useState<'daily' | 'monthly'>('daily');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedMonthKey, setExpandedMonthKey] = useState<string | null>(null);
@@ -166,22 +167,24 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
             <div>
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 <CalendarCheck className="w-6 h-6 text-blue-400" />
-                {manualDate ? 'Cierre Retroactivo' : 'Cierre del Día'}
+                Cierre del Día
               </h2>
-              <div className="flex items-center gap-2 mt-2">
-                <input
-                  type="date"
-                  value={manualDate}
-                  onChange={(e) => setManualDate(e.target.value)}
-                  className="bg-slate-800/50 border border-slate-600 rounded-lg px-3 py-1 text-sm text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                  title="Seleccionar fecha para cierre manual"
-                />
-                {manualDate && (
-                  <button onClick={() => setManualDate('')} className="text-slate-400 hover:text-white text-xs underline">
-                    Volver a Hoy
-                  </button>
-                )}
-              </div>
+              {role === 'admin' && (
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="date"
+                    value={manualDate}
+                    onChange={(e) => setManualDate(e.target.value)}
+                    className="bg-slate-800/50 border border-slate-600 rounded-lg px-3 py-1 text-sm text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                    title="Seleccionar fecha para cierre manual"
+                  />
+                  {manualDate && (
+                    <button onClick={() => setManualDate('')} className="text-slate-400 hover:text-white text-xs underline">
+                      Volver a Hoy
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             <span className={`border px-3 py-1 rounded-full text-xs font-mono font-bold ${manualDate ? 'bg-orange-500/20 border-orange-500/50 text-orange-200' : 'bg-blue-600/30 border-blue-500/50 text-blue-100'}`}>
               {manualDate ? targetDateStr : 'HOY'}
