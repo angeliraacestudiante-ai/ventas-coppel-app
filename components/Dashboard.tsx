@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, ComposedChart, Line } from 'recharts';
-import { Target, Edit2, Check, TrendingUp, Trophy, PartyPopper, DollarSign, Smartphone, Trash2, Share2 } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { Target, Edit2, Check, TrendingUp, Trophy, PartyPopper, DollarSign, Smartphone, Trash2 } from 'lucide-react';
 import { Sale, Brand, DailyClose } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 import { supabase } from '../services/supabaseClient';
@@ -419,7 +418,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
         {/* 1. TODAY'S Brand Distribution (Moved to Top) */}
-        <div ref={todayRef} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col xl:col-span-2 relative overflow-hidden">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col xl:col-span-2 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
             <PartyPopper className="w-32 h-32 text-orange-500 transform rotate-12" />
           </div>
@@ -433,18 +432,9 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
                 ({todayCount} equipos)
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] sm:text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full shrink-0">
-                Tiempo Real
-              </span>
-              <button
-                onClick={handleShareToday}
-                className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
-                title="Compartir Resumen"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
-            </div>
+            <span className="text-[10px] sm:text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full shrink-0 mt-0.5">
+              Tiempo Real
+            </span>
           </div>
 
           {todayCount > 0 ? (

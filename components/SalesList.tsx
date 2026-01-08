@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import { Search, Image as ImageIcon, Calendar, User, Tag, Trash2, Eye, DollarSign, TrendingUp, Smartphone, MoreHorizontal, Edit2, X, Share2 } from 'lucide-react';
 import { Sale, Brand } from '../types';
 import { BRAND_CONFIGS } from '../constants';
@@ -15,6 +16,42 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onEdit, onAdd, r
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBrand, setFilterBrand] = useState<Brand | 'ALL'>('ALL');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const summaryRef = useRef<HTMLDivElement>(null);
+
+  const handleShareSummary = async () => {
+    if (!summaryRef.current) return;
+    try {
+      const canvas = await html2canvas(summaryRef.current, {
+        scale: 2,
+        backgroundColor: '#0f172a', // Slate-900
+        useCORS: true
+      });
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `resumen-dia-${new Date().toLocaleDateString().replace(/\//g, '-')}.png`, { type: 'image/png' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Resumen del Día',
+              text: 'Ventas de hoy.'
+            });
+          } catch (e) {
+            console.log('Cancelled');
+          }
+        } else {
+          const link = document.createElement('a');
+          link.href = canvas.toDataURL('image/png');
+          link.download = file.name;
+          link.click();
+        }
+      });
+    } catch (err) {
+      console.error(err);
+      alert("Error al compartir.");
+    }
+  };
 
   // Date Filtering State
   const [viewMode, setViewMode] = useState<'today' | 'all' | 'custom'>('today');
@@ -85,7 +122,7 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onEdit, onAdd, r
     <div className="space-y-8">
 
       {/* --- TODAY'S PERFORMANCE HERO CARD --- */}
-      <div className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-xl border border-slate-800">
+      <div ref={summaryRef} className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-xl border border-slate-800">
         {/* Decorative Background Elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-20 -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-600 rounded-full blur-[100px] opacity-10 translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
@@ -96,6 +133,13 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onEdit, onAdd, r
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <span className="bg-blue-600 w-2 h-6 rounded-full inline-block"></span>
                 Resumen del Día
+                <button
+                  onClick={handleShareSummary}
+                  className="ml-2 p-1.5 bg-slate-800/50 hover:bg-slate-700 text-slate-300 hover:text-white rounded-full transition-colors border border-slate-700"
+                  title="Compartir Captura"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
               </h2>
               <p className="text-slate-400 text-sm mt-1 pl-4">
                 {todayDateObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
