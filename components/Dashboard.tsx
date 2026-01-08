@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, ComposedChart, Line } from 'recharts';
 import { Target, Edit2, Check, TrendingUp, Trophy, PartyPopper, DollarSign, Smartphone } from 'lucide-react';
 import { Sale, Brand, DailyClose } from '../types';
 import { BRAND_CONFIGS } from '../constants';
@@ -178,6 +178,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
     return {
       date: dateStr,
       amount: dailySales.reduce((sum, s) => sum + s.price, 0),
+      netAmount: dailySales.reduce((sum, s) => sum + s.price, 0) / 1.16,
       count: dailySales.length
     };
   });
@@ -601,7 +602,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[400px] xl:col-span-2">
           <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-6">Ingresos (Últimos 7 días)</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={timelineData}>
+            <ComposedChart data={timelineData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis
                 dataKey="date"
@@ -619,10 +620,14 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
               <Tooltip
                 cursor={{ fill: '#f8fafc' }}
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                formatter={(value: number) => [`$${value}`, 'Ingreso']}
+                formatter={(value: number, name: string) => {
+                  if (name === 'netAmount') return [`$${value.toFixed(2)}`, 'Sin IVA'];
+                  return [`$${value}`, 'Total (Con IVA)'];
+                }}
               />
-              <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
+              <Line type="monotone" dataKey="netAmount" stroke="#f97316" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
