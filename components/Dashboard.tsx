@@ -4,7 +4,7 @@ import { Target, Edit2, Check, TrendingUp, Trophy, PartyPopper, DollarSign, Smar
 import { Sale, Brand, DailyClose } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 import { supabase } from '../services/supabaseClient';
-import { Trash2 } from 'lucide-react';
+
 
 interface DashboardProps {
   sales: Sale[];
@@ -12,44 +12,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
-  const todayRef = useRef<HTMLDivElement>(null);
 
-  const handleShareToday = async () => {
-    if (!todayRef.current) return;
-    try {
-      const canvas = await html2canvas(todayRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true // Important for logos
-      });
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `ventas-hoy-${new Date().toLocaleDateString().replace(/\//g, '-')}.png`, { type: 'image/png' });
-
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: 'Resumen de Ventas de Hoy',
-              text: 'Aquí está el desglose de ventas del día.'
-            });
-          } catch (e) {
-            // User cancelled or error
-            console.log('Share cancelled');
-          }
-        } else {
-          // Fallback
-          const link = document.createElement('a');
-          link.href = canvas.toDataURL('image/png');
-          link.download = file.name;
-          link.click();
-        }
-      });
-    } catch (err) {
-      console.error(err);
-      alert("No se pudo generar la captura.");
-    }
-  };
 
   const handleFactoryReset = async () => {
     if (window.confirm("⚠️ ¿ESTÁS SEGURO? \n\nEsto borrará TODAS las ventas y EL HISTORIAL DE CIERRES de la base de datos permanentemente.\n\nLa aplicación quedará vacía como nueva.")) {
