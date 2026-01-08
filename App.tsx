@@ -790,6 +790,7 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
                 onAddSale={handleAddSale}
                 onUpdateSale={handleUpdateSale}
                 initialData={saleToEdit}
+                role={userProfile?.role}
                 onCancel={() => {
                   setSaleToEdit(null);
                   setCurrentView('list');

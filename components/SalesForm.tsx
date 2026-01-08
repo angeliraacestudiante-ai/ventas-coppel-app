@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Camera, Loader2, Save, X, Sparkles, Trash2, Smartphone, Edit2, Eye, Share2 } from 'lucide-react'; // Added Eye and Share2 icons
+import { Plus, Camera, Loader2, Save, X, Sparkles, Trash2, Smartphone, Edit2, Eye, Share2, FolderOpen } from 'lucide-react'; // Added Eye and Share2 icons
 import { Brand, Sale } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 import { analyzeTicketImage } from '../services/geminiService';
@@ -11,6 +11,7 @@ interface SalesFormProps {
   onUpdateSale?: (sale: Sale) => Promise<void>;
   initialData?: Sale | null;
   onCancel: () => void;
+  role?: string;
 }
 
 interface SaleItem {
@@ -20,7 +21,7 @@ interface SaleItem {
   error?: string;
 }
 
-const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialData, onCancel }) => {
+const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialData, onCancel, role }) => {
   // Construct local YYYY-MM-DD for default date to avoid UTC issues
   const localDate = new Date();
   const defaultDateStr = localDate.getFullYear() + '-' +
@@ -86,6 +87,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // --- DRAFT PERSISTENCE ---
   const clearDraft = () => localStorage.removeItem('sales_form_draft');
@@ -657,6 +659,17 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
                       La foto actual está guardada en la nube. Puedes cambiarla si lo deseas.
                     </p>
                   )}
+
+                  {role === 'admin' && (
+                    <button
+                      type="button"
+                      onClick={() => galleryInputRef.current?.click()}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-bold transition-colors border border-slate-200 flex items-center justify-center gap-2"
+                    >
+                      <FolderOpen className="w-4 h-4" />
+                      Desde Archivos
+                    </button>
+                  )}
                 </div>
 
                 <input
@@ -664,6 +677,13 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
                   type="file"
                   accept="image/*"
                   capture="environment"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
                   className="hidden"
                   onChange={handleFileChange}
                 />
