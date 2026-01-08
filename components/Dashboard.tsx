@@ -425,7 +425,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
                       }}
                     >
                       {brandDataToday.map((entry, index) => (
-                        <Cell key={`cell-t-${index}`} fill={entry.color} />
+                        <Cell key={`cell-t-${index}`} fill={entry.color} style={{ outline: 'none' }} stroke="none" />
                       ))}
                     </Pie>
                     <Tooltip
@@ -501,7 +501,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
                     }}
                   >
                     {brandData.map((entry, index) => (
-                      <Cell key={`cell-g-${index}`} fill={entry.color} />
+                      <Cell key={`cell-g-${index}`} fill={entry.color} style={{ outline: 'none' }} stroke="none" />
                     ))}
                   </Pie>
                   <Tooltip
@@ -565,7 +565,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
                     }}
                   >
                     {brandData.map((entry, index) => (
-                      <Cell key={`cell-r-${index}`} fill={entry.color} />
+                      <Cell key={`cell-r-${index}`} fill={entry.color} style={{ outline: 'none' }} stroke="none" />
                     ))}
                   </Pie>
                   <Tooltip
