@@ -55,18 +55,30 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onEdit, onAdd, r
     return matchesSearch && matchesBrand && matchesDate;
     return matchesSearch && matchesBrand && matchesDate;
   }).sort((a, b) => {
-    // Sort by Date Descending first (most recent)
-    // Then by Invoice Number Descending
+    // 1. Sort by Date Descending first (most recent)
     const dateDiff = b.date.localeCompare(a.date);
     if (dateDiff !== 0) return dateDiff;
 
-    // Attempt numeric sort for invoice
-    const invA = parseInt(a.invoiceNumber);
-    const invB = parseInt(b.invoiceNumber);
-    if (!isNaN(invA) && !isNaN(invB)) {
-      return invB - invA;
+    // 2. Sort by Invoice Sequence Descending
+    const getSequence = (inv: string) => {
+      // Remove any non-numeric except dash
+      const clean = String(inv).replace(/[^0-9-]/g, '');
+      // If contains dash, take the part AFTER the last dash (usually the sequence)
+      if (clean.includes('-')) {
+        const parts = clean.split('-');
+        return parseInt(parts[parts.length - 1]);
+      }
+      return parseInt(clean);
+    };
+
+    const seqA = getSequence(a.invoiceNumber);
+    const seqB = getSequence(b.invoiceNumber);
+
+    if (!isNaN(seqA) && !isNaN(seqB)) {
+      return seqB - seqA;
     }
-    return b.invoiceNumber.localeCompare(a.invoiceNumber);
+    // Fallback
+    return String(b.invoiceNumber).localeCompare(String(a.invoiceNumber));
   });
 
   return (
