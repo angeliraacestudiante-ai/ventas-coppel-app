@@ -360,7 +360,20 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onEdit, onAdd, r
 
             {selectedImage.includes('google.com') || selectedImage.includes('drive.google') ? (
               <iframe
-                src={selectedImage.replace('uc?export=view&id=', 'file/d/').replace('/view', '/preview').includes('/preview') ? selectedImage : selectedImage.includes('file/d/') ? selectedImage.split('/view')[0] + '/preview' : `https://drive.google.com/file/d/${selectedImage.split('id=')[1]}/preview`}
+                src={(() => {
+                  try {
+                    let id = '';
+                    if (selectedImage.includes('/d/')) {
+                      id = selectedImage.split('/d/')[1].split('/')[0];
+                    } else if (selectedImage.includes('id=')) {
+                      id = selectedImage.split('id=')[1].split('&')[0];
+                    }
+                    if (id) return `https://drive.google.com/file/d/${id}/preview`;
+                    return selectedImage;
+                  } catch (e) {
+                    return selectedImage;
+                  }
+                })()}
                 className="w-full h-[80vh] rounded-xl shadow-2xl bg-white"
                 allow="autoplay"
                 title="Ticket Preview"
