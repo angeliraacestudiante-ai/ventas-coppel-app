@@ -16,7 +16,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   if (import.meta.env.VITE_GEMINI_API_KEY_5) apiKeys.push(import.meta.env.VITE_GEMINI_API_KEY_5);
 
   // DEBUG TEMPORAL: Ver qué está pasando en el celular
-  alert(`DEBUG: El sistema detectó ${apiKeys.length} llaves API.`);
+  // alert(`DEBUG: El sistema detectó ${apiKeys.length} llaves API.`);
 
   if (apiKeys.length === 0) {
     console.error("❌ ERROR CRÍTICO: No se encontró la API Key.");
