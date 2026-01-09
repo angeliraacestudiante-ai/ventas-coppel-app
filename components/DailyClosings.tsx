@@ -169,22 +169,23 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                 <CalendarCheck className="w-6 h-6 text-blue-400" />
                 Cierre del Día
               </h2>
-              {role === 'admin' && (
-                <div className="flex items-center gap-2 mt-2">
+              {role === 'admin' ? (
+                <div className="flex items-center gap-2 mt-2 bg-slate-800/50 p-1.5 rounded-lg border border-slate-600/50">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 pl-1">Fecha:</span>
                   <input
                     type="date"
-                    value={manualDate}
+                    value={manualDate || todayStr}
                     onChange={(e) => setManualDate(e.target.value)}
-                    className="bg-slate-800/50 border border-slate-600 rounded-lg px-3 py-1 text-sm text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                    title="Seleccionar fecha para cierre manual"
+                    className="bg-transparent border-0 text-white text-sm font-bold focus:ring-0 cursor-pointer outline-none"
+                    title="Cambiar fecha de cierre"
                   />
-                  {manualDate && (
-                    <button onClick={() => setManualDate('')} className="text-slate-400 hover:text-white text-xs underline">
-                      Volver a Hoy
+                  {manualDate && manualDate !== todayStr && (
+                    <button onClick={() => setManualDate('')} className="text-blue-300 hover:text-white text-xs underline px-2">
+                      Hoy
                     </button>
                   )}
                 </div>
-              )}
+              ) : null}
             </div>
             <span className={`border px-3 py-1 rounded-full text-xs font-mono font-bold ${manualDate ? 'bg-orange-500/20 border-orange-500/50 text-orange-200' : 'bg-blue-600/30 border-blue-500/50 text-blue-100'}`}>
               {manualDate ? targetDateStr : 'HOY'}
