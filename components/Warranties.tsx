@@ -44,6 +44,7 @@ const Warranties: React.FC<WarrantiesProps> = ({
     const [formData, setFormData] = useState<Omit<Warranty, 'id' | 'status'>>({
         receptionDate: new Date().toISOString().split('T')[0],
         invoiceNumber: '',
+        possibleEntryDate: '', // Nuevo estado
         brand: Brand.SAMSUNG,
         model: '',
         imei: '',
@@ -160,6 +161,7 @@ const Warranties: React.FC<WarrantiesProps> = ({
             setFormData({
                 receptionDate: new Date().toISOString().split('T')[0],
                 invoiceNumber: '',
+                possibleEntryDate: '',
                 brand: Brand.SAMSUNG,
                 model: '',
                 imei: '',
@@ -190,11 +192,15 @@ const Warranties: React.FC<WarrantiesProps> = ({
         const text = `
 *📋 REPORTE DE GARANTÍA - TELCEL*
 --------------------------------
-*📅 Fecha:* ${warranty.receptionDate}
-*📱 Equipo:* ${brandConfigs[warranty.brand]?.label || warranty.brand} ${warranty.model}
+*📅 Fecha de Recepción:* ${warranty.receptionDate}
+${warranty.possibleEntryDate ? `*� Posible Fecha Ingreso:* ${warranty.possibleEntryDate}\n` : ''}*🏷️ Marca:* ${brandConfigs[warranty.brand]?.label || warranty.brand}
+*📱 Modelo:* ${warranty.model}
 *🔢 IMEI:* ${warranty.imei || 'N/A'}
-*🔧 Falla:* ${warranty.issueDescription}
-*📢 Estado Actual:* ${statusTexts[warranty.status]}
+*🔧 Falla Reportada:* ${warranty.issueDescription}
+*🔌 Accesorios:* ${warranty.accessories || 'Ninguno'}
+*� Estado Físico:* ${warranty.physicalCondition}
+${warranty.ticketImage ? `*📷 Foto:* ${warranty.ticketImage}` : ''}
+*�📢 Estado Actual:* ${statusTexts[warranty.status]}
 
 _Para más información, contacte a sucursal._
 `.trim();
@@ -333,6 +339,19 @@ _Para más información, contacte a sucursal._
                                 </div>
 
                                 <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Posible Fecha Ingreso (Opcional)</label>
+                                    <div className="relative">
+                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                        <input
+                                            type="date"
+                                            value={formData.possibleEntryDate || ''}
+                                            onChange={(e) => setFormData({ ...formData, possibleEntryDate: e.target.value })}
+                                            className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
                                     <label className="text-xs font-bold text-slate-500 uppercase">Marca</label>
                                     <div className="relative">
                                         <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -356,8 +375,8 @@ _Para más información, contacte a sucursal._
                                         required
                                         placeholder="Ej. Galaxy A54"
                                         value={formData.model}
-                                        onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                                        onChange={(e) => setFormData({ ...formData, model: e.target.value.toUpperCase() })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm uppercase"
                                     />
                                 </div>
 
@@ -489,6 +508,11 @@ _Para más información, contacte a sucursal._
                                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
                                         {warranty.receptionDate}
                                     </span>
+                                    {warranty.possibleEntryDate && (
+                                        <span className="text-[10px] text-slate-400 mt-1">
+                                            Ingreso: {warranty.possibleEntryDate}
+                                        </span>
+                                    )}
                                 </div>
                                 {getStatusBadge(warranty.status)}
                             </div>

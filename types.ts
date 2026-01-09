@@ -77,5 +77,6 @@ export interface Warranty {
   physicalCondition: string; // estado fisico
   contactNumber: string;
   ticketImage?: string; // URL de Google Drive o base64 temporal
+  possibleEntryDate?: string; // Nuevo: Posible fecha de ingreso
   status: 'received' | 'sent_to_provider' | 'in_store' | 'delivered';
 }
