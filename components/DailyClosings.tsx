@@ -50,9 +50,17 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
   const filteredClosings = useMemo(() => {
     return closings.filter(close => {
       const closeDate = close.date;
-      if (dateFilter.start && closeDate < dateFilter.start) return false;
-      if (dateFilter.end && closeDate > dateFilter.end) return false;
-      return true;
+
+      // 1. If active filter, strict filtering
+      if (dateFilter.start || dateFilter.end) {
+        if (dateFilter.start && closeDate < dateFilter.start) return false;
+        if (dateFilter.end && closeDate > dateFilter.end) return false;
+        return true;
+      }
+
+      // 2. Default: Show Current Month only
+      const currentMonthPrefix = new Date().toISOString().slice(0, 7); // YYYY-MM
+      return closeDate.startsWith(currentMonthPrefix);
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [closings, dateFilter]);
 
@@ -100,6 +108,20 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
       return b.monthIndex - a.monthIndex;
     });
   }, [filteredClosings]);
+
+  const toggleExpand = (id: string) => {
+    const isOpening = expandedId !== id;
+    setExpandedId(prev => prev === id ? null : id);
+
+    if (isOpening) {
+      setTimeout(() => {
+        const element = document.getElementById(`daily-close-${id}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  };
 
   // Helper to get top brand for a whole month
   const getMonthTopBrand = (monthKey: string) => {
@@ -151,9 +173,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
     }
   };
 
-  const toggleExpand = (id: string) => {
-    setExpandedId(prev => prev === id ? null : id);
-  };
+
 
   const toggleMonthExpand = (key: string) => {
     setExpandedMonthKey(prev => prev === key ? null : key);
@@ -341,7 +361,11 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                 const daySales = sales.filter(s => s.date === close.date);
 
                 return (
-                  <div key={close.id} className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden group ${isExpanded ? 'border-blue-200 shadow-md ring-1 ring-blue-100' : 'border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100'}`}>
+                  <div
+                    id={`daily-close-${close.id}`}
+                    key={close.id}
+                    className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden group ${isExpanded ? 'border-blue-200 shadow-md ring-1 ring-blue-100' : 'border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100'}`}
+                  >
 
                     {/* Header Row */}
                     <div
@@ -579,7 +603,10 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                               </div>
                               <div className="text-right">
                                 <p className="font-bold text-green-600 text-sm">${close.totalRevenue.toLocaleString('es-MX')}</p>
-                                <p className="text-[10px] text-slate-400 font-medium group-hover/day:text-blue-500">Ver Detalles &rarr;</p>
+                                <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+                                  Neto: ${(close.totalRevenue / 1.16).toLocaleString('es-MX', { maximumFractionDigits: 0 })}
+                                </p>
+                                <p className="text-[10px] text-blue-500 font-medium mt-1 group-hover/day:text-blue-600">Ver Detalles &rarr;</p>
                               </div>
                             </div>
                           ))}
