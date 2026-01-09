@@ -241,6 +241,17 @@ ${warranty.ticketImage ? `*📷 Foto:* ${warranty.ticketImage}` : ''}
         }
     };
 
+    const confirmStatusChange = (id: string, newStatus: Warranty['status']) => {
+        let message = "¿Estás seguro de cambiar el estado?";
+        if (newStatus === 'sent_to_provider') message = "¿Confirmas que el equipo se enviará a TALLER?";
+        if (newStatus === 'in_store') message = "¿Confirmas que el equipo ya llegó a TIENDA?";
+        if (newStatus === 'delivered') message = "¿Confirmas que el equipo se entregará al CLIENTE? Esta acción cerrará el ciclo.";
+
+        if (window.confirm(message)) {
+            onUpdateStatus(id, newStatus);
+        }
+    };
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header & Controls */}
@@ -613,7 +624,7 @@ ${warranty.ticketImage ? `*📷 Foto:* ${warranty.ticketImage}` : ''}
                                 <div className="flex gap-2">
                                     {warranty.status === 'received' && (
                                         <button
-                                            onClick={() => onUpdateStatus(warranty.id, 'sent_to_provider')}
+                                            onClick={() => confirmStatusChange(warranty.id, 'sent_to_provider')}
                                             className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
                                         >
                                             <Truck className="w-3.5 h-3.5" /> Enviar
@@ -621,7 +632,7 @@ ${warranty.ticketImage ? `*📷 Foto:* ${warranty.ticketImage}` : ''}
                                     )}
                                     {warranty.status === 'sent_to_provider' && (
                                         <button
-                                            onClick={() => onUpdateStatus(warranty.id, 'in_store')}
+                                            onClick={() => confirmStatusChange(warranty.id, 'in_store')}
                                             className="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
                                         >
                                             <PackageCheck className="w-3.5 h-3.5" /> Recibir
@@ -629,7 +640,7 @@ ${warranty.ticketImage ? `*📷 Foto:* ${warranty.ticketImage}` : ''}
                                     )}
                                     {warranty.status === 'in_store' && (
                                         <button
-                                            onClick={() => onUpdateStatus(warranty.id, 'delivered')}
+                                            onClick={() => confirmStatusChange(warranty.id, 'delivered')}
                                             className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
                                         >
                                             <CheckCircle2 className="w-3.5 h-3.5" /> Entregar
