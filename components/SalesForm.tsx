@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Camera, Loader2, Save, X, Sparkles, Trash2, Smartphone, Edit2, Eye, Share2, FolderOpen } from 'lucide-react'; // Added Eye and Share2 icons
+import { Plus, Camera, Loader2, Save, X, Trash2, Smartphone, Edit2, Eye, Share2, FolderOpen } from 'lucide-react'; // Added Eye and Share2 icons
 import { Brand, Sale } from '../types';
 import { BRAND_CONFIGS } from '../constants';
-import { analyzeTicketImage } from '../services/geminiService';
 import { supabase } from '../services/supabaseClient';
 import { uploadImageToDriveScript, deleteImageFromDriveScript } from '../services/googleAppsScriptService'; // Import delete service
 
@@ -84,7 +83,6 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showFullImage, setShowFullImage] = useState(false); // New state for modal
 
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -252,49 +250,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
     }
   };
 
-  const handleAnalyzeTicket = async () => {
-    if (!ticketImage) return;
-
-    setIsAnalyzing(true);
-    try {
-      const result = await analyzeTicketImage(ticketImage);
-
-      setCommonData(prev => ({
-        ...prev,
-        // IA devuelve solo 6 dígitos (instrucción nueva). Si devuelve más, limpiamos.
-        invoiceNumber: result.invoiceNumber ? `1053-${result.invoiceNumber.replace(/\D/g, '').slice(-6)}` : prev.invoiceNumber,
-        date: result.date || prev.date,
-        customerName: result.customerName || prev.customerName,
-      }));
-
-      // Handle Multi-Item
-      if (result.items && result.items.length > 0) {
-        setItems(result.items.map((item, index) => ({
-          tempId: Date.now() + index,
-          brand: item.brand,
-          price: item.price.toString()
-        })));
-      } else {
-        // Fallback for single item legacy or manual price field
-        setItems(prev => {
-          const newItems = [...prev];
-          if (newItems.length > 0) {
-            const firstItem = { ...newItems[0] };
-            if (result.price) firstItem.price = result.price.toString();
-            if (result.brand) firstItem.brand = result.brand;
-            newItems[0] = firstItem;
-          }
-          return newItems;
-        });
-      }
-
-    } catch (error: any) {
-      console.error("Analysis Error:", error);
-      alert(error.message || "No se pudo analizar el ticket automáticamente. Por favor ingrese los datos manualmente.");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+  // Removed handleAnalyzeTicket AI logic
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -694,17 +650,6 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
               <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
                 Toma una foto clara del ticket. La imagen se guardará de forma segura en la nube.
               </p>
-              {ticketImage && (
-                <button
-                  type="button"
-                  onClick={handleAnalyzeTicket}
-                  disabled={isAnalyzing || isSubmitting}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50 text-sm font-medium w-fit"
-                >
-                  {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  {isAnalyzing ? "Analizando..." : "Autocompletar datos"}
-                </button>
-              )}
             </div>
           </div>
 
