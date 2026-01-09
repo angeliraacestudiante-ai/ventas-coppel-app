@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Camera, Loader2, Save, X, Trash2, Smartphone, Edit2, Eye, Share2, FolderOpen } from 'lucide-react'; // Added Eye and Share2 icons
+import { Plus, Camera, Loader2, Save, X, Trash2, Smartphone, Edit2, Eye, Share2, FolderOpen, Wand2 } from 'lucide-react'; // Added Eye and Share2 icons
 import { Brand, Sale } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 import { supabase } from '../services/supabaseClient';
 import { uploadImageToDriveScript, deleteImageFromDriveScript } from '../services/googleAppsScriptService'; // Import delete service
+import { analyzeTicketImage } from '../services/geminiService';
 
 interface SalesFormProps {
   onAddSale: (sale: Omit<Sale, 'id'>) => Promise<void>;
@@ -84,6 +85,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
   const [showFullImage, setShowFullImage] = useState(false); // New state for modal
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -245,12 +247,44 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
           // This significantly reduces size for upload
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
           setTicketImage(compressedBase64);
+
+          // Trigger AI Analysis
+          handleAnalyzeTicket(compressedBase64);
         };
       };
     }
   };
 
-  // Removed handleAnalyzeTicket AI logic
+  const handleAnalyzeTicket = async (base64Image: string) => {
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeTicketImage(base64Image);
+
+      // Update fields if we got results
+      if (result) {
+        setCommonData(prev => ({
+          ...prev,
+          invoiceNumber: result.invoiceNumber ? formatInvoice(result.invoiceNumber) : prev.invoiceNumber,
+          date: result.date || prev.date,
+          customerName: result.customerName ? result.customerName.toUpperCase() : prev.customerName
+        }));
+
+        if (result.items && result.items.length > 0) {
+          setItems(result.items.map((item, index) => ({
+            tempId: Date.now() + index,
+            brand: item.brand,
+            price: item.price !== undefined ? item.price.toString() : '',
+            error: undefined
+          })));
+        }
+      }
+    } catch (error) {
+      console.error("Error analyzing ticket:", error);
+      // Optional: alert("No se pudo analizar el ticket automáticamente.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -438,8 +472,8 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
                 type="text"
                 name="customerName"
                 value={commonData.customerName}
-                onChange={(e) => setCommonData(prev => ({ ...prev, customerName: e.target.value.toUpperCase() }))}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
+                onChange={(e) => setCommonData(prev => ({ ...prev, customerName: e.target.value }))}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900 uppercase placeholder:normal-case"
                 placeholder="Nombre completo"
                 required
               />
@@ -650,6 +684,12 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
               <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
                 Toma una foto clara del ticket. La imagen se guardará de forma segura en la nube.
               </p>
+              {isAnalyzing && (
+                <div className="flex items-center gap-2 text-blue-600 text-xs font-bold animate-pulse">
+                  <Wand2 className="w-3 h-3" />
+                  Analizando ticket con IA...
+                </div>
+              )}
             </div>
           </div>
 

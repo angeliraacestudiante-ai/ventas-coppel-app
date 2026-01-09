@@ -19,10 +19,7 @@ const App: React.FC = () => {
 
   // App State
   // App State
-  const [currentView, setCurrentView] = useState<'form' | 'list' | 'dashboard' | 'closings' | 'warranties'>(() => {
-    const saved = localStorage.getItem('app_current_view');
-    return (saved as 'form' | 'list' | 'dashboard' | 'closings' | 'warranties') || 'list';
-  });
+  const [currentView, setCurrentView] = useState<'form' | 'list' | 'dashboard' | 'closings' | 'warranties'>('list');
 
   useEffect(() => {
     localStorage.setItem('app_current_view', currentView);
