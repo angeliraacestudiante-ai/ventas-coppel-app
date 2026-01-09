@@ -62,7 +62,7 @@ const App: React.FC = () => {
 
   const [copiedSql, setCopiedSql] = useState(false);
   const [saleToEdit, setSaleToEdit] = useState<Sale | null>(null);
-  const [showPromoModal, setShowPromoModal] = useState(false);
+
 
   // SQL Script Update: Adds Profiles table and stricter policies
   const REQUIRED_SQL = `
@@ -278,27 +278,7 @@ create policy "Authenticated users can do everything on warranties" on public.wa
     };
   }, []);
 
-  // Promo Modal Logic (Specific User)
-  useEffect(() => {
-    if (userProfile?.email === 'jeissonjessy@gmail.com') {
-      const now = new Date();
-      const currentHour = now.getHours();
-      // 9:00 AM to 7:00 PM (19:00)
-      if (currentHour >= 9 && currentHour < 19) {
-        const today = now.toDateString();
-        const key = `promo_shown_count_${today}`;
-        const count = parseInt(localStorage.getItem(key) || '0');
 
-        if (count < 3) {
-          const timer = setTimeout(() => {
-            setShowPromoModal(true);
-            localStorage.setItem(key, (count + 1).toString());
-          }, 1500);
-          return () => clearTimeout(timer);
-        }
-      }
-    }
-  }, [userProfile]);
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -1058,46 +1038,7 @@ create policy "Authenticated users can do everything on warranties" on public.wa
       )}
 
 
-      {/* Promo Modal */}
-      {showPromoModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-300">
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl border-4 border-white/10 relative overflow-hidden">
 
-            {/* Background Decoration */}
-            <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-
-            <div className="relative z-10">
-              <div className="bg-white/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-md shadow-inner ring-4 ring-white/10">
-                <ShieldAlert className="w-10 h-10 text-white" />
-              </div>
-
-              <h2 className="text-3xl font-black text-white mb-2 tracking-tight">¡NUEVA SECCIÓN!</h2>
-
-              <div className="bg-white/10 rounded-xl p-4 mb-6 border border-white/10">
-                <p className="text-blue-50 text-lg leading-relaxed font-medium">
-                  Hola <span className="text-yellow-300 font-bold">Jeisson</span>,<br />
-                  Ahora tienes acceso exclusivo para probar la nueva página de <strong>Garantías</strong>.
-                </p>
-              </div>
-
-              <button
-                onClick={() => {
-                  setShowPromoModal(false);
-                  setCurrentView('warranties');
-                }}
-                className="w-full bg-white text-blue-700 font-black py-4 rounded-xl text-lg hover:scale-105 active:scale-95 transition-all shadow-xl hover:shadow-2xl flex items-center justify-center gap-2"
-              >
-                <span>PROBAR AHORA</span>
-                <ChevronRight className="w-5 h-5" />
-              </button>
-
-              <p className="text-blue-200/60 text-xs mt-4 font-medium uppercase tracking-widest">
-                Acceso de prueba • Solo por hoy
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );
