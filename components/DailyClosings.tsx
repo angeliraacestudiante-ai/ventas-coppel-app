@@ -367,60 +367,57 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                     className={`bg-white rounded-xl border transition-all duration-200 overflow-hidden group ${isExpanded ? 'border-blue-200 shadow-md ring-1 ring-blue-100' : 'border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100'}`}
                   >
 
-                    {/* Header Row - Compact */}
+                    {/* Header Row - Designed for "Compactedness" & Clarity */}
                     <div
                       onClick={() => toggleExpand(close.id)}
-                      className="p-4 flex flex-col md:flex-row items-stretch md:items-center gap-4 cursor-pointer"
+                      className="p-3 flex items-center gap-3 cursor-pointer select-none"
                     >
-                      {/* Date Badge - Compact */}
-                      <div className="flex flex-row md:flex-col items-center justify-center md:w-16 md:h-16 bg-blue-50/50 rounded-lg border border-blue-100 text-blue-700 shrink-0 gap-3 md:gap-0 p-2 md:p-0">
-                        <span className="text-xl md:text-2xl font-black leading-none">{dateObj.getDate()}</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider">{dateObj.toLocaleDateString('es-MX', { month: 'short' })}</span>
-                        <span className="md:hidden text-slate-400 font-normal text-xs ml-auto">{dateObj.getFullYear()}</span>
+                      {/* Date Badge - Slim */}
+                      <div className="flex flex-col items-center justify-center w-12 h-12 bg-blue-50 rounded-lg border border-blue-100 text-blue-700 shrink-0">
+                        <span className="text-xl font-black leading-none">{dateObj.getDate()}</span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider">{dateObj.toLocaleDateString('es-MX', { month: 'short' }).replace('.', '')}</span>
                       </div>
 
-                      {/* Info Grid - Compact */}
-                      <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-y-2 gap-x-4 items-center">
-                        <div className="col-span-2 md:col-span-1 leading-tight">
-                          <p className="font-semibold text-slate-800 capitalize text-sm">{dateObj.toLocaleDateString('es-MX', { weekday: 'long' })}</p>
-                          <p className="text-xs text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(close.closedAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ventas</p>
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                            <span className="font-bold text-slate-700 text-sm">{close.totalSales}</span>
+                      {/* Main Info Area - Flex-based for tight vertical rhythm */}
+                      <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
+                        {/* Left Side: Date Info, Sales, Brand */}
+                        <div className="flex flex-col gap-0.5 overflow-hidden">
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-slate-800 capitalize text-base truncate">
+                              {dateObj.toLocaleDateString('es-MX', { weekday: 'long' })}
+                            </p>
+                            {close.topBrand !== 'N/A' && BRAND_CONFIGS[close.topBrand as Brand] && (
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold text-white uppercase tracking-wide shrink-0 ${BRAND_CONFIGS[close.topBrand as Brand].colorClass}`}
+                                style={BRAND_CONFIGS[close.topBrand as Brand].colorClass.includes('text-black') ? { color: 'black' } : {}}
+                              >
+                                {BRAND_CONFIGS[close.topBrand as Brand].label}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
+                            <span className="flex items-center gap-1">
+                              {new Date(close.closedAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              • {close.totalSales} Ventas
+                            </span>
                           </div>
                         </div>
 
-                        {/* Combined Revenue & Net */}
-                        <div>
-                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ingresos</p>
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-900 bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100 text-sm w-fit">
-                              ${close.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-medium mt-0.5">
-                              Neto: ${(close.totalRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="hidden md:block text-right">
-                          {close.topBrand !== 'N/A' && BRAND_CONFIGS[close.topBrand as Brand] && (
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide ${BRAND_CONFIGS[close.topBrand as Brand].colorClass}`}
-                              style={BRAND_CONFIGS[close.topBrand as Brand].colorClass.includes('text-black') ? { color: 'black' } : {}}
-                            >
-                              {BRAND_CONFIGS[close.topBrand as Brand].label}
-                            </span>
-                          )}
+                        {/* Right Side: Money */}
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="font-bold text-slate-900 text-base">
+                            ${close.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            Neto: ${(close.totalRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
                         </div>
                       </div>
 
                       {/* Chevron */}
-                      <div className={`text-slate-300 md:ml-2 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-blue-500' : 'rotate-0 group-hover:text-slate-400'}`}>
+                      <div className={`transition-transform duration-200 text-slate-300 md:ml-2 ${isExpanded ? 'rotate-180 text-blue-500' : 'rotate-0 group-hover:text-slate-400'}`}>
                         <ChevronDown className="w-5 h-5" />
                       </div>
                     </div>
@@ -516,56 +513,47 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
 
                     <div
                       onClick={() => toggleMonthExpand(month.monthKey)}
-                      className="p-4 flex flex-col md:flex-row items-stretch md:items-center gap-4 cursor-pointer bg-gradient-to-r from-transparent to-transparent hover:from-indigo-50/30"
+                      className="p-3 flex items-center gap-3 cursor-pointer bg-gradient-to-r from-transparent to-transparent hover:from-indigo-50/30 select-none"
                     >
                       {/* Month Badge */}
-                      <div className="flex flex-row md:flex-col items-center justify-center md:w-16 md:h-16 bg-indigo-50/50 rounded-lg border border-indigo-100 text-indigo-700 shrink-0 gap-3 md:gap-0 p-2 md:p-0">
-                        <span className="text-lg md:text-xl font-black uppercase">{month.label.substring(0, 3)}</span>
-                        <span className="text-[10px] font-bold text-indigo-400">{month.year}</span>
+                      <div className="flex flex-col items-center justify-center w-12 h-12 bg-indigo-50 rounded-lg border border-indigo-100 text-indigo-700 shrink-0">
+                        <span className="text-lg font-black uppercase leading-none">{month.label.substring(0, 3)}</span>
+                        <span className="text-[9px] font-bold text-indigo-400">{month.year}</span>
                       </div>
 
-                      {/* Info Grid */}
-                      <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-y-2 gap-x-4 items-center">
-                        <div className="col-span-2 md:col-span-1 leading-tight">
-                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Periodo</p>
-                          <p className="font-semibold text-slate-800 text-sm">{month.label}</p>
-                          <p className="text-[10px] text-slate-400">{month.closings.length} cortes</p>
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ventas</p>
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                            <span className="font-bold text-slate-700 text-sm">{month.totalSales}</span>
+                      {/* Main Info Area - Flex-based */}
+                      <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
+                        {/* Left Side: Period Info */}
+                        <div className="flex flex-col gap-0.5 overflow-hidden">
+                          <p className="font-bold text-slate-800 text-base truncate">
+                            {month.label}
+                          </p>
+                          <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
+                            <span>{month.closings.length} Cortes</span>
+                            <span>• {month.totalSales} Ventas</span>
+                            {monthTopBrand && BRAND_CONFIGS[monthTopBrand] && (
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold text-white uppercase tracking-wide shrink-0 ${BRAND_CONFIGS[monthTopBrand].colorClass}`}
+                                style={BRAND_CONFIGS[monthTopBrand].colorClass.includes('text-black') ? { color: 'black' } : {}}
+                              >
+                                {BRAND_CONFIGS[monthTopBrand].label}
+                              </span>
+                            )}
                           </div>
                         </div>
 
-                        {/* Combined Revenue & Net */}
-                        <div>
-                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ingresos</p>
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-900 bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100 text-sm w-fit">
-                              ${month.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-medium mt-0.5">
-                              Neto: ${(month.totalRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="hidden md:block text-right">
-                          {monthTopBrand ? (
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide ${BRAND_CONFIGS[monthTopBrand].colorClass}`}
-                              style={BRAND_CONFIGS[monthTopBrand].colorClass.includes('text-black') ? { color: 'black' } : {}}
-                            >
-                              {BRAND_CONFIGS[monthTopBrand].label}
-                            </span>
-                          ) : <span className="text-slate-300">-</span>}
+                        {/* Right Side: Money */}
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="font-bold text-slate-900 text-base">
+                            ${month.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            Neto: ${(month.totalRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
                         </div>
                       </div>
 
-                      <div className={`w-8 h-8 flex items-center justify-center rounded-full text-slate-300 md:ml-2 transition-transform duration-200 origin-center ${isExpanded ? 'rotate-180 text-indigo-600 bg-indigo-100' : 'rotate-0 group-hover:text-slate-400'}`}>
+                      <div className={`transition-transform duration-200 text-slate-300 md:ml-2 ${isExpanded ? 'rotate-180 text-indigo-600' : 'rotate-0 group-hover:text-slate-400'}`}>
                         <ChevronDown className="w-5 h-5" />
                       </div>
                     </div>
