@@ -66,12 +66,17 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   };
 
   // 2. Rotación de Claves API
+  const attemptLogs: string[] = [];
+
   for (const [keyIndex, currentApiKey] of apiKeys.entries()) {
     console.log(`🔄 Intentando con API Key #${keyIndex + 1}...`);
     const genAI = new GoogleGenerativeAI(currentApiKey);
+    let keyFailed = false;
 
     // Intentar con cada modelo usando la clave actual
     for (const modelName of candidateModels) {
+      if (keyFailed) break; // Si la llave falló con error crítico, saltar modelos
+
       try {
         console.log(`  ➡️ Modelo: ${modelName}`);
         const model = genAI.getGenerativeModel({
@@ -107,7 +112,6 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
         if (text) {
           const data = JSON.parse(text);
           console.log(`✅ ÉXITO con Key #${keyIndex + 1} y modelo ${modelName}`, data);
-
           return {
             invoiceNumber: data.invoiceNumber,
             price: data.price,
@@ -124,35 +128,36 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
         console.warn(`  ⚠️ Falló ${modelName} con Key #${keyIndex + 1}:`, error.message);
         lastError = error;
 
-        // Si es error de cuota (429), salir del bucle de modelos para probar la Siguiente Key
-        if (error.message?.includes("429")) {
-          console.warn(`⏳ Cuota excedida en Key #${keyIndex + 1}. Cambiando de llave...`);
-          break; // Salir del bucle 'for modelName', ir al siguiente 'for apiKey'
+        const msg = error.message || "Unknown error";
+
+        // Si es 429, la llave está quemada
+        if (msg.includes("429")) {
+          attemptLogs.push(`Key #${keyIndex + 1}: ⏳ Cuota (429)`);
+          keyFailed = true; // Marcar llave como fallida
+          break; // Siguiente llave
         }
 
-        // Si es API key inválida, no tiene caso seguir con esta key
-        if (error.message?.includes("API key")) {
-          break;
+        // Si es API Key inválida
+        if (msg.includes("API key")) {
+          attemptLogs.push(`Key #${keyIndex + 1}: ❌ Key Inválida`);
+          keyFailed = true;
+          break; // Siguiente llave
+        }
+
+        // Otros errores (ej. modelo no encontrado), probamos siguiente modelo...
+        // Si fue el último modelo y falló:
+        if (modelName === candidateModels[candidateModels.length - 1]) {
+          attemptLogs.push(`Key #${keyIndex + 1}: ⚠️ Error técnico (${msg.slice(0, 20)}...)`);
         }
       }
     }
   }
 
-  // Si llegamos aquí, fallaron todas las llaves y modelos
+  // Si llegamos aquí, fallaron todas
   console.error("❌ Todas las claves y modelos fallaron.", lastError);
-  const errorMessage = lastError?.message || lastError?.toString() || "";
 
-  if (errorMessage.includes("429")) {
-    throw new Error(`⏳ Cuota excedida en TODAS las claves (${apiKeys.length}). Intenta mañana.`);
-  }
-
-  if (errorMessage.includes("503")) {
-    throw new Error("🚧 Servidores saturados (Error 503). La IA está temporalmente no disponible por alta demanda. Intenta de nuevo en unos minutos.");
-  }
-
-  if (errorMessage.includes("509")) {
-    throw new Error("📉 Límite de ancho de banda (Error 509). Es posible que tu red o el servicio estén limitados. Intenta con otra conexión o espera un momento.");
-  }
+  // Mostrar reporte detallado al usuario
+  throw new Error(`FALLO TOTAL:\n${attemptLogs.join('\n')}\n\nIntenta con otra imagen o revisa Vercel.`);
 
   if (errorMessage.includes("500")) {
     throw new Error("💥 Error interno de Google (Error 500). Algo falló en los servidores de IA. Intenta de nuevo.");
