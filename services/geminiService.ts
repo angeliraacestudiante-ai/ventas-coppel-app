@@ -2,17 +2,26 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { TicketAnalysisResult, Brand } from "../types";
 
 export const analyzeTicketImage = async (base64Image: string): Promise<TicketAnalysisResult> => {
-  // DEBUG: Verificar si la clave se está leyendo correctamente
-  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
-  console.log("[DEBUG] VITE_GEMINI_API_KEY presente:", !!envKey);
+  // 1. Obtener todas las claves disponibles
+  const apiKeys: string[] = [];
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY;
+  // Agregar clave principal
+  const mainKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY;
+  if (mainKey) apiKeys.push(mainKey);
 
-  if (!apiKey) {
-    console.error("❌ ERROR CRÍTICO: No se encontró la API Key.");
-    console.log("Variables de entorno disponibles:", import.meta.env); // Ayuda a ver qué variables sí cargaron
-    throw new Error("Falta la API Key de Gemini. Configura VITE_GEMINI_API_KEY en tu archivo .env (Local) o en Settings > Environment Variables (Vercel).");
+  // Buscar claves adicionales (VITE_GEMINI_API_KEY_2, _3, etc.)
+  let i = 2;
+  while (import.meta.env[`VITE_GEMINI_API_KEY_${i}`]) {
+    apiKeys.push(import.meta.env[`VITE_GEMINI_API_KEY_${i}`]);
+    i++;
   }
+
+  if (apiKeys.length === 0) {
+    console.error("❌ ERROR CRÍTICO: No se encontró la API Key.");
+    throw new Error("Falta la API Key de Gemini. Configura VITE_GEMINI_API_KEY en tu archivo .env.");
+  }
+
+  console.log(`[DEBUG] Se encontraron ${apiKeys.length} claves API para rotación.`);
 
   const candidateModels = [
     "gemini-1.5-pro",
@@ -24,8 +33,6 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   ];
 
   let lastError: any = null;
-
-  // Remove header if present (e.g., "data:image/jpeg;base64,")
   const base64Data = base64Image.split(',')[1] || base64Image;
 
   const prompt = `You are an expert data extractor for Coppel store sales tickets. Analyze this image and extract the following in JSON format:
@@ -55,80 +62,85 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     },
   };
 
-  const genAI = new GoogleGenerativeAI(apiKey);
+  // 2. Rotación de Claves API
+  for (const [keyIndex, currentApiKey] of apiKeys.entries()) {
+    console.log(`🔄 Intentando con API Key #${keyIndex + 1}...`);
+    const genAI = new GoogleGenerativeAI(currentApiKey);
 
-  for (const modelName of candidateModels) {
-    try {
-      console.log(`Attempting analysis with model: ${modelName}`);
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: SchemaType.OBJECT,
-            properties: {
-              invoiceNumber: { type: SchemaType.STRING },
-              price: { type: SchemaType.NUMBER },
-              date: { type: SchemaType.STRING },
-              customerName: { type: SchemaType.STRING },
-              items: {
-                type: SchemaType.ARRAY,
+    // Intentar con cada modelo usando la clave actual
+    for (const modelName of candidateModels) {
+      try {
+        console.log(`  ➡️ Modelo: ${modelName}`);
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: SchemaType.OBJECT,
+              properties: {
+                invoiceNumber: { type: SchemaType.STRING },
+                price: { type: SchemaType.NUMBER },
+                date: { type: SchemaType.STRING },
+                customerName: { type: SchemaType.STRING },
                 items: {
-                  type: SchemaType.OBJECT,
-                  properties: {
-                    brand: { type: SchemaType.STRING },
-                    price: { type: SchemaType.NUMBER }
+                  type: SchemaType.ARRAY,
+                  items: {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                      brand: { type: SchemaType.STRING },
+                      price: { type: SchemaType.NUMBER }
+                    }
                   }
                 }
               }
             }
           }
+        });
+
+        const result = await model.generateContent([prompt, imagePart]);
+        const response = await result.response;
+        const text = response.text();
+
+        if (text) {
+          const data = JSON.parse(text);
+          console.log(`✅ ÉXITO con Key #${keyIndex + 1} y modelo ${modelName}`, data);
+
+          return {
+            invoiceNumber: data.invoiceNumber,
+            price: data.price,
+            date: data.date,
+            items: data.items?.map((item: any) => {
+              let b = Brand.OTRO;
+              if (Object.values(Brand).includes(item.brand as Brand)) b = item.brand as Brand;
+              return { brand: b, price: item.price };
+            }),
+            customerName: data.customerName
+          };
         }
-      });
+      } catch (error: any) {
+        console.warn(`  ⚠️ Falló ${modelName} con Key #${keyIndex + 1}:`, error.message);
+        lastError = error;
 
-      const result = await model.generateContent([prompt, imagePart]);
-      const response = await result.response;
-      const text = response.text();
+        // Si es error de cuota (429), salir del bucle de modelos para probar la Siguiente Key
+        if (error.message?.includes("429")) {
+          console.warn(`⏳ Cuota excedida en Key #${keyIndex + 1}. Cambiando de llave...`);
+          break; // Salir del bucle 'for modelName', ir al siguiente 'for apiKey'
+        }
 
-      if (text) {
-        const data = JSON.parse(text);
-
-        console.log(`Success with model: ${modelName}`, data);
-
-        return {
-          invoiceNumber: data.invoiceNumber,
-          price: data.price,
-          date: data.date,
-          items: data.items?.map((item: any) => {
-            let b = Brand.OTRO;
-            if (Object.values(Brand).includes(item.brand as Brand)) b = item.brand as Brand;
-            return { brand: b, price: item.price };
-          }),
-          customerName: data.customerName
-        };
+        // Si es API key inválida, no tiene caso seguir con esta key
+        if (error.message?.includes("API key")) {
+          break;
+        }
       }
-    } catch (error: any) {
-      console.warn(`Failed with model ${modelName}:`, error.message);
-      lastError = error;
-
-      // If error is NOT 404 (Not Found) AND NOT 429 (Rate Limit) AND NOT 503 (Overloaded), 
-      // it might be a parsing/request error we shouldn't retry? 
-      // Actually, for safety, let's retry on almost everything except auth errors.
-      if (error.message?.includes("API key")) {
-        throw error; // Don't retry invalid key
-      }
-
-      // Continue to next model
     }
   }
 
-  // If we get here, all models failed
-  console.error("All models failed. Last error:", lastError);
-
+  // Si llegamos aquí, fallaron todas las llaves y modelos
+  console.error("❌ Todas las claves y modelos fallaron.", lastError);
   const errorMessage = lastError?.message || lastError?.toString() || "";
 
   if (errorMessage.includes("429")) {
-    throw new Error("⏳ Cuota excedida (Error 429). Has alcanzado el límite diario de la IA. Por favor ingresa los datos manualmente hoy.");
+    throw new Error(`⏳ Cuota excedida en TODAS las claves (${apiKeys.length}). Intenta mañana.`);
   }
 
   if (errorMessage.includes("503")) {
@@ -144,7 +156,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   }
 
   if (errorMessage.includes("API key")) {
-     throw new Error("🔑 Error de configuración. La API Key no es válida o no se encuentra.");
+    throw new Error("🔑 Error de configuración. La API Key no es válida o no se encuentra.");
   }
 
   throw new Error("⚠️ No se pudo leer el ticket automáticamente. Por favor ingresa los datos manualmente. (Detalle: " + (errorMessage.slice(0, 50)) + "...)");
