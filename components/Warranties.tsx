@@ -112,13 +112,10 @@ const Warranties: React.FC<WarrantiesProps> = ({
             return false;
         }
 
-        if (!formData.ticketImage) {
-            // User said: "opcion de agregar una foto... bueno que todos los datos sean obligatorios"
-            // Assuming strictest interpretation:
-            // But maybe just warn? I will make it mandatory as per "todos los datos sean obligatorios".
-            alert("⚠️ Debes adjuntar una foto del ticket o del equipo.");
-            return false;
-        }
+        // if (!formData.ticketImage) {
+        //     alert("⚠️ Debes adjuntar una foto del ticket o del equipo.");
+        //     return false;
+        // }
 
         return true;
     };
@@ -142,8 +139,11 @@ const Warranties: React.FC<WarrantiesProps> = ({
                 } catch (error) {
                     console.error("Upload failed", error);
                     alert("Error al subir imagen a Drive. Se guardará sin imagen remota.");
-                    // Proceed anyway? Or stop? User wants it saved in drive. 
-                    // Stop is safer to ensure compliance.
+                    // Proceed even if upload fails now? Or keep restricting?
+                    // User requested making it optional, so if upload fails, we can either stop or proceed without image.
+                    // Given previous strictness, let's keep the error behavior for *attempted* upload, but allow *no upload* if empty.
+                    // If we are here, image was provided. If it fails, maybe we should still fail or ask user.
+                    // Let's stick to fail safely:
                     alert("No se pudo subir la imagen. Intenta de nuevo.");
                     setIsSubmitting(false);
                     return;
