@@ -9,12 +9,10 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   const mainKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY;
   if (mainKey) apiKeys.push(mainKey);
 
-  // Buscar claves adicionales de forma estática (necesario para Vite)
-  if (import.meta.env.VITE_GEMINI_API_KEY_2) apiKeys.push(import.meta.env.VITE_GEMINI_API_KEY_2);
-  if (import.meta.env.VITE_GEMINI_API_KEY_3) apiKeys.push(import.meta.env.VITE_GEMINI_API_KEY_3);
-  if (import.meta.env.VITE_GEMINI_API_KEY_4) apiKeys.push(import.meta.env.VITE_GEMINI_API_KEY_4);
-  if (import.meta.env.VITE_GEMINI_API_KEY_5) apiKeys.push(import.meta.env.VITE_GEMINI_API_KEY_5);
-  if (import.meta.env.VITE_GEMINI_API_KEY_6) apiKeys.push(import.meta.env.VITE_GEMINI_API_KEY_6);
+
+
+  // NOTA: Se ha deshabilitado la rotación de claves adicionales a petición del usuario.
+  // Solo se usará la clave principal.
 
   // DEBUG TEMPORAL: Ver qué está pasando en el celular
   // alert(`DEBUG: El sistema detectó ${apiKeys.length} llaves API.`);
