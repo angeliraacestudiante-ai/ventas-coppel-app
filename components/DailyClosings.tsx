@@ -182,8 +182,8 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
               <label className="relative cursor-pointer group select-none">
                 <div
                   className={`border px-3 py-1 rounded-full text-xs font-mono font-bold flex items-center gap-2 transition-all ${manualDate
-                      ? 'bg-orange-500/20 border-orange-500/50 text-orange-200 group-hover:bg-orange-500/30'
-                      : 'bg-blue-600/30 border-blue-500/50 text-blue-100 group-hover:bg-blue-600/40'
+                    ? 'bg-orange-500/20 border-orange-500/50 text-orange-200 group-hover:bg-orange-500/30'
+                    : 'bg-blue-600/30 border-blue-500/50 text-blue-100 group-hover:bg-blue-600/40'
                     }`}
                 >
                   {manualDate ? targetDateStr : 'HOY'}
@@ -204,7 +204,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
               <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Ventas {manualDate ? 'del día' : 'Hoy'}</p>
               <div className="flex items-center gap-2">
@@ -218,6 +218,15 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                 <DollarSign className="w-5 h-5 text-green-400" />
                 <span className="text-3xl font-bold">
                   ${targetRevenue.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Sin IVA</p>
+              <div className="flex items-center gap-2">
+                <Tag className="w-5 h-5 text-purple-400" />
+                <span className="text-3xl font-bold">
+                  ${(targetRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
