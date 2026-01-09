@@ -43,10 +43,12 @@ const Warranties: React.FC<WarrantiesProps> = ({
     // Form State
     const [formData, setFormData] = useState<Omit<Warranty, 'id' | 'status'>>({
         receptionDate: new Date().toISOString().split('T')[0],
+        invoiceNumber: '',
         brand: Brand.SAMSUNG,
         model: '',
         imei: '',
         issueDescription: '',
+        accessories: '',
         physicalCondition: '',
         contactNumber: '',
         ticketImage: ''
@@ -135,7 +137,7 @@ const Warranties: React.FC<WarrantiesProps> = ({
                 const filename = `Garantia_${formData.model}_${formData.receptionDate}`;
                 try {
                     // We reuse the service. assuming date parameter is meant for folder structure if needed
-                    const url = await uploadImageToDriveScript(formData.ticketImage, filename, formData.receptionDate);
+                    const url = await uploadImageToDriveScript(formData.ticketImage, filename, formData.receptionDate, 'warranties');
                     finalImageUrl = url;
                 } catch (error) {
                     console.error("Upload failed", error);
@@ -157,10 +159,12 @@ const Warranties: React.FC<WarrantiesProps> = ({
             setIsAdding(false);
             setFormData({
                 receptionDate: new Date().toISOString().split('T')[0],
+                invoiceNumber: '',
                 brand: Brand.SAMSUNG,
                 model: '',
                 imei: '',
                 issueDescription: '',
+                accessories: '',
                 physicalCondition: '',
                 contactNumber: '',
                 ticketImage: ''
@@ -282,6 +286,22 @@ _Para más información, contacte a sucursal._
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                {/* Invoice Number - First Field requested */}
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">No. Factura</label>
+                                    <div className="relative">
+                                        <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="Ej. 123456"
+                                            value={formData.invoiceNumber}
+                                            onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
+                                            className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium"
+                                        />
+                                    </div>
+                                </div>
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold text-slate-500 uppercase">Fecha Recepción</label>
                                     <div className="relative">
@@ -365,6 +385,21 @@ _Para más información, contacte a sucursal._
                                             placeholder="Describe el problema del equipo..."
                                             value={formData.issueDescription}
                                             onChange={(e) => setFormData({ ...formData, issueDescription: e.target.value })}
+                                            className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm resize-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1 md:col-span-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Accesorios (Cargador, caja, funda...)</label>
+                                    <div className="relative">
+                                        <PackageCheck className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                                        <textarea
+                                            required
+                                            rows={2}
+                                            placeholder="Detalla qué accesorios se reciben..."
+                                            value={formData.accessories}
+                                            onChange={(e) => setFormData({ ...formData, accessories: e.target.value })}
                                             className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm resize-none"
                                         />
                                     </div>
@@ -472,6 +507,12 @@ _Para más información, contacte a sucursal._
                                 {warranty.imei && <p className="text-xs font-mono text-slate-400 break-all">IMEI: {warranty.imei}</p>}
                             </div>
 
+                            {/* Invoice Number on Card */}
+                            <div className="mb-2">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Factura</span>
+                                <span className="text-sm font-medium text-slate-800">{warranty.invoiceNumber}</span>
+                            </div>
+
                             {/* Contact */}
                             <div className="mb-4 flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
                                 <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -489,6 +530,10 @@ _Para más información, contacte a sucursal._
                                 <div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5">Estado:</p>
                                     <p className="text-xs text-slate-600 leading-snug truncate">{warranty.physicalCondition}</p>
+                                </div>
+                                <div className="md:col-span-1">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5">Accesorios:</p>
+                                    <p className="text-xs text-slate-600 leading-snug truncate">{warranty.accessories}</p>
                                 </div>
                             </div>
 

@@ -221,10 +221,12 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
 create table if not exists public.warranties (
   id uuid default gen_random_uuid() primary key,
   reception_date text not null,
+  invoice_number text not null, -- Nuevo
   brand text not null,
   model text not null,
   imei text,
   issue_description text not null,
+  accessories text, -- Nuevo
   physical_condition text not null,
   contact_number text not null,
   ticket_image text,
@@ -422,10 +424,12 @@ create policy "Authenticated users can do everything on warranties" on public.wa
         const formattedWarranties: Warranty[] = warrantiesData.map((row: any) => ({
           id: row.id,
           receptionDate: row.reception_date,
+          invoiceNumber: row.invoice_number,
           brand: row.brand as Brand,
           model: row.model,
           imei: row.imei,
           issueDescription: row.issue_description,
+          accessories: row.accessories,
           physicalCondition: row.physical_condition,
           contactNumber: row.contact_number,
           ticketImage: row.ticket_image,
@@ -652,10 +656,12 @@ create policy "Authenticated users can do everything on warranties" on public.wa
     try {
       const dbPayload = {
         reception_date: newWarranty.receptionDate,
+        invoice_number: newWarranty.invoiceNumber, // Nuevo
         brand: newWarranty.brand,
         model: newWarranty.model,
         imei: newWarranty.imei,
         issue_description: newWarranty.issueDescription,
+        accessories: newWarranty.accessories, // Nuevo
         physical_condition: newWarranty.physicalCondition,
         contact_number: newWarranty.contactNumber,
         ticket_image: newWarranty.ticketImage,
@@ -674,10 +680,12 @@ create policy "Authenticated users can do everything on warranties" on public.wa
         const addedWarranty: Warranty = {
           id: row.id,
           receptionDate: row.reception_date,
+          invoiceNumber: row.invoice_number,
           brand: row.brand as Brand,
           model: row.model,
           imei: row.imei,
           issueDescription: row.issue_description,
+          accessories: row.accessories,
           physicalCondition: row.physical_condition,
           contactNumber: row.contact_number,
           ticketImage: row.ticket_image,

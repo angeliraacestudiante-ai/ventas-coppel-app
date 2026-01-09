@@ -68,10 +68,12 @@ export interface MonthlyGoal {
 export interface Warranty {
   id: string;
   receptionDate: string;
+  invoiceNumber: string; // Nuevo
   brand: Brand;
   model: string;
   imei?: string;
   issueDescription: string; // falla
+  accessories: string; // Nuevo: Accesorios
   physicalCondition: string; // estado fisico
   contactNumber: string;
   ticketImage?: string; // URL de Google Drive o base64 temporal
