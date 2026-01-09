@@ -182,27 +182,16 @@ const Warranties: React.FC<WarrantiesProps> = ({
     };
 
     const handleShareWhatsApp = (warranty: Warranty) => {
-        const statusTexts: Record<string, string> = {
-            'received': 'Recibido en Tienda',
-            'sent_to_provider': 'Enviado a Taller/Proveedor',
-            'in_store': 'Listo en Tienda para Entrega',
-            'delivered': 'Entregado al Cliente'
-        };
-
         const text = `
 *📋 REPORTE DE GARANTÍA - TELCEL*
 --------------------------------
 *📅 Fecha de Recepción:* ${warranty.receptionDate}
-*🏷️ Marca:* ${brandConfigs[warranty.brand]?.label || warranty.brand}
-*📱 Modelo:* ${warranty.model}
+*📱 Equipo:* ${(brandConfigs[warranty.brand]?.label || warranty.brand).toUpperCase()} ${warranty.model.toUpperCase()}
 *🔢 IMEI:* ${warranty.imei || 'N/A'}
 *🔧 Falla Reportada:* ${warranty.issueDescription}
 *🔌 Accesorios:* ${warranty.accessories || 'Ninguno'}
 *🔍 Estado Físico:* ${warranty.physicalCondition}
 ${warranty.ticketImage ? `*📷 Foto:* ${warranty.ticketImage}` : ''}
-*📢 Estado Actual:* ${statusTexts[warranty.status]}
-
-_Para más información, contacte a sucursal._
 `.trim();
 
         const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
