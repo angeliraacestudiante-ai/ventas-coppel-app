@@ -12,10 +12,15 @@ import {
     Truck,
     CheckCircle2,
     PackageCheck,
-    MoreVertical,
-    X
+    X,
+    Camera,
+    Share2,
+    Image as ImageIcon,
+    Loader2,
+    ExternalLink
 } from 'lucide-react';
 import { Warranty, Brand, BrandConfig } from '../types';
+import { uploadImageToDriveScript } from '../services/googleAppsScriptService';
 
 interface WarrantiesProps {
     warranties: Warranty[];
@@ -31,9 +36,11 @@ const Warranties: React.FC<WarrantiesProps> = ({
     brandConfigs
 }) => {
     const [isAdding, setIsAdding] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | Warranty['status']>('all');
 
+    // Form State
     const [formData, setFormData] = useState<Omit<Warranty, 'id' | 'status'>>({
         receptionDate: new Date().toISOString().split('T')[0],
         brand: Brand.SAMSUNG,
@@ -41,34 +48,160 @@ const Warranties: React.FC<WarrantiesProps> = ({
         imei: '',
         issueDescription: '',
         physicalCondition: '',
-        contactNumber: ''
+        contactNumber: '',
+        ticketImage: ''
     });
+
+    const [ticketPreview, setTicketPreview] = useState<string | null>(null);
+
+    // --- HANDLERS ---
+
+    const handleNumericInput = (field: keyof typeof formData, value: string, maxLength: number) => {
+        const numericValue = value.replace(/\D/g, '').slice(0, maxLength);
+        setFormData(prev => ({ ...prev, [field]: numericValue }));
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (ev) => {
+                // Compress Image Logic (Simple version)
+                const img = new Image();
+                img.src = ev.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDimension = 1000;
+
+                    if (width > height) {
+                        if (width > maxDimension) { height = Math.round((height * maxDimension) / width); width = maxDimension; }
+                    } else {
+                        if (height > maxDimension) { width = Math.round((width * maxDimension) / height); height = maxDimension; }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+                    const compressed = canvas.toDataURL('image/jpeg', 0.7);
+                    setTicketPreview(compressed);
+                    setFormData(prev => ({ ...prev, ticketImage: compressed }));
+                };
+            };
+        }
+    };
+
+    const validateForm = () => {
+        if (!formData.brand || !formData.model || !formData.issueDescription || !formData.physicalCondition) {
+            alert("⚠️ Todos los campos de texto son obligatorios.");
+            return false;
+        }
+
+        if (formData.imei && formData.imei.length !== 15) {
+            alert("⚠️ El IMEI debe tener exactamente 15 dígitos.");
+            return false;
+        }
+
+        if (formData.contactNumber.length !== 10) {
+            alert("⚠️ El número de contacto debe tener 10 dígitos.");
+            return false;
+        }
+
+        if (!formData.ticketImage) {
+            // User said: "opcion de agregar una foto... bueno que todos los datos sean obligatorios"
+            // Assuming strictest interpretation:
+            // But maybe just warn? I will make it mandatory as per "todos los datos sean obligatorios".
+            alert("⚠️ Debes adjuntar una foto del ticket o del equipo.");
+            return false;
+        }
+
+        return true;
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        await onAddWarranty({
-            ...formData,
-            status: 'received'
-        });
-        setIsAdding(false);
-        // Reset form mostly, keep date
-        setFormData({
-            ...formData,
-            model: '',
-            imei: '',
-            issueDescription: '',
-            physicalCondition: '',
-            contactNumber: ''
-        });
+        if (!validateForm()) return;
+
+        setIsSubmitting(true);
+
+        try {
+            let finalImageUrl = formData.ticketImage;
+
+            // Upload to Drive if it looks like base64
+            if (formData.ticketImage && formData.ticketImage.startsWith('data:')) {
+                const filename = `Garantia_${formData.model}_${formData.receptionDate}`;
+                try {
+                    // We reuse the service. assuming date parameter is meant for folder structure if needed
+                    const url = await uploadImageToDriveScript(formData.ticketImage, filename, formData.receptionDate);
+                    finalImageUrl = url;
+                } catch (error) {
+                    console.error("Upload failed", error);
+                    alert("Error al subir imagen a Drive. Se guardará sin imagen remota.");
+                    // Proceed anyway? Or stop? User wants it saved in drive. 
+                    // Stop is safer to ensure compliance.
+                    alert("No se pudo subir la imagen. Intenta de nuevo.");
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
+            await onAddWarranty({
+                ...formData,
+                ticketImage: finalImageUrl,
+                status: 'received'
+            });
+
+            setIsAdding(false);
+            setFormData({
+                receptionDate: new Date().toISOString().split('T')[0],
+                brand: Brand.SAMSUNG,
+                model: '',
+                imei: '',
+                issueDescription: '',
+                physicalCondition: '',
+                contactNumber: '',
+                ticketImage: ''
+            });
+            setTicketPreview(null);
+
+        } catch (error) {
+            console.error(error);
+            alert("Error al guardar garantía.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
+    const handleShareWhatsApp = (warranty: Warranty) => {
+        const statusTexts: Record<string, string> = {
+            'received': 'Recibido en Tienda',
+            'sent_to_provider': 'Enviado a Taller/Proveedor',
+            'in_store': 'Listo en Tienda para Entrega',
+            'delivered': 'Entregado al Cliente'
+        };
+
+        const text = `
+*📋 REPORTE DE GARANTÍA - TELCEL*
+--------------------------------
+*📅 Fecha:* ${warranty.receptionDate}
+*📱 Equipo:* ${brandConfigs[warranty.brand]?.label || warranty.brand} ${warranty.model}
+*🔢 IMEI:* ${warranty.imei || 'N/A'}
+*🔧 Falla:* ${warranty.issueDescription}
+*📢 Estado Actual:* ${statusTexts[warranty.status]}
+
+_Para más información, contacte a sucursal._
+`.trim();
+
+        const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+    };
+
+    // --- FILTERING ---
     const filteredWarranties = warranties.filter(w => {
         const matchesSearch =
-            w.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) || // Wait, Warranty type doesn't have customerName explicitly in types.ts update? I missed it? 
-            // Checking types.ts update: id, receptionDate, brand, model, imei, issueDescription, physicalCondition, contactNumber, status.
-            // Ah, I missed 'customerName' in the user request? 
-            // User said: "fecha de recepcion, marca, modelo, imei, falla, estado fisico y numero de contacto". No customer name explicitly, but implied?
-            // "numero de contacto" implies reaching a person. I'll search by contact number, model, imei.
             w.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
             w.contactNumber.includes(searchTerm) ||
             (w.imei && w.imei.includes(searchTerm));
@@ -138,11 +271,13 @@ const Warranties: React.FC<WarrantiesProps> = ({
                                     <ShieldAlert className="w-5 h-5 text-blue-600" />
                                     Registrar Garantía
                                 </h2>
-                                <p className="text-slate-500 text-sm">Ingresa los detalles del equipo recibido.</p>
+                                <p className="text-slate-500 text-sm">Todos los campos son obligatorios.</p>
                             </div>
-                            <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
-                                <X className="w-5 h-5" />
-                            </button>
+                            {!isSubmitting && (
+                                <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            )}
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -162,7 +297,7 @@ const Warranties: React.FC<WarrantiesProps> = ({
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Número de Contacto</label>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Número de Contacto (10 Dígitos)</label>
                                     <div className="relative">
                                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                         <input
@@ -170,10 +305,11 @@ const Warranties: React.FC<WarrantiesProps> = ({
                                             required
                                             placeholder="Ej. 6671234567"
                                             value={formData.contactNumber}
-                                            onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
+                                            onChange={(e) => handleNumericInput('contactNumber', e.target.value, 10)}
                                             className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                                         />
                                     </div>
+                                    <p className="text-[10px] text-right text-slate-400">{formData.contactNumber.length}/10</p>
                                 </div>
 
                                 <div className="space-y-1">
@@ -206,14 +342,17 @@ const Warranties: React.FC<WarrantiesProps> = ({
                                 </div>
 
                                 <div className="space-y-1 md:col-span-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">IMEI / Serie</label>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">IMEI / Serie (15 Dígitos)</label>
                                     <input
                                         type="text"
-                                        placeholder="Opcional"
+                                        required
+                                        maxLength={15}
+                                        placeholder="Ingrese los 15 dígitos del IMEI"
                                         value={formData.imei}
-                                        onChange={(e) => setFormData({ ...formData, imei: e.target.value })}
+                                        onChange={(e) => handleNumericInput('imei', e.target.value, 15)}
                                         className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono"
                                     />
+                                    <p className="text-[10px] text-right text-slate-400">{formData.imei?.length || 0}/15</p>
                                 </div>
 
                                 <div className="space-y-1 md:col-span-2">
@@ -245,21 +384,53 @@ const Warranties: React.FC<WarrantiesProps> = ({
                                         />
                                     </div>
                                 </div>
+
+                                {/* Ticket Image Input */}
+                                <div className="space-y-1 md:col-span-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Evidencia (Ticket/Equipo)</label>
+                                    <div className="flex gap-4 items-start">
+                                        {ticketPreview ? (
+                                            <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 group">
+                                                <img src={ticketPreview} alt="Preview" className="w-full h-full object-cover" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setTicketPreview(null); setFormData(p => ({ ...p, ticketImage: '' })); }}
+                                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-80 hover:opacity-100"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <label className="w-full cursor-pointer group">
+                                                <div className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-blue-50 hover:border-blue-400 transition-colors">
+                                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                                        <Camera className="w-8 h-8 text-slate-400 group-hover:text-blue-500 mb-2" />
+                                                        <p className="text-xs text-slate-500">Tocar para tomar foto</p>
+                                                    </div>
+                                                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
+                                                </div>
+                                            </label>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="pt-4 flex gap-3 justify-end border-t border-slate-100 mt-4">
                                 <button
                                     type="button"
                                     onClick={() => setIsAdding(false)}
-                                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm transition-colors"
+                                    disabled={isSubmitting}
+                                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm shadow-md transition-all hover:shadow-lg"
+                                    disabled={isSubmitting}
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                 >
-                                    Registrar Equipo
+                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldAlert className="w-4 h-4" />}
+                                    {isSubmitting ? "Guardando..." : "Registrar Equipo"}
                                 </button>
                             </div>
                         </form>
@@ -270,11 +441,11 @@ const Warranties: React.FC<WarrantiesProps> = ({
             {/* Warranties List */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filteredWarranties.map(warranty => (
-                    <div key={warranty.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
+                    <div key={warranty.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden flex flex-col h-full">
                         {/* Brand Stripe */}
                         <div className={`absolute top-0 left-0 w-1 h-full ${brandConfigs[warranty.brand]?.colorClass?.replace('text-', 'bg-') || 'bg-slate-500'}`}></div>
 
-                        <div className="pl-4">
+                        <div className="pl-4 flex-1 flex flex-col">
                             {/* Header: Date & Status */}
                             <div className="flex justify-between items-start mb-3">
                                 <div className="flex flex-col">
@@ -302,13 +473,15 @@ const Warranties: React.FC<WarrantiesProps> = ({
                             </div>
 
                             {/* Contact */}
-                            <div className="mb-4 flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                                <Phone className="w-4 h-4 text-blue-500" />
-                                <span className="font-medium">{warranty.contactNumber}</span>
+                            <div className="mb-4 flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                    <Phone className="w-4 h-4 text-blue-500" />
+                                    <span className="font-medium">{warranty.contactNumber}</span>
+                                </div>
                             </div>
 
                             {/* Details Grid */}
-                            <div className="grid grid-cols-1 gap-2 mb-4">
+                            <div className="grid grid-cols-1 gap-2 mb-4 flex-1">
                                 <div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5">Falla:</p>
                                     <p className="text-xs text-slate-700 bg-red-50 p-2 rounded border border-red-100 leading-snug">{warranty.issueDescription}</p>
@@ -319,33 +492,57 @@ const Warranties: React.FC<WarrantiesProps> = ({
                                 </div>
                             </div>
 
-                            {/* Actions */}
-                            <div className="flex flex-wrap gap-2 mt-2 pt-3 border-t border-slate-100">
+                            {/* Actions & Evidence */}
+                            <div className="pt-3 border-t border-slate-100 space-y-3 mt-auto">
+                                {/* View Evidence Link if exists */}
+                                {warranty.ticketImage && (
+                                    <a
+                                        href={warranty.ticketImage}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                                    >
+                                        <ImageIcon className="w-3.5 h-3.5" />
+                                        Ver Evidencia
+                                    </a>
+                                )}
+
+                                {/* Share Button (WhatsApp) */}
+                                <button
+                                    onClick={() => handleShareWhatsApp(warranty)}
+                                    className="w-full flex items-center justify-center gap-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 py-2 rounded-lg transition-colors border border-slate-200"
+                                >
+                                    <Share2 className="w-3.5 h-3.5" />
+                                    Enviar Reporte por WhatsApp
+                                </button>
+
                                 {/* State Transitions */}
-                                {warranty.status === 'received' && (
-                                    <button
-                                        onClick={() => onUpdateStatus(warranty.id, 'sent_to_provider')}
-                                        className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
-                                    >
-                                        <Truck className="w-3.5 h-3.5" /> Enviar a Taller
-                                    </button>
-                                )}
-                                {warranty.status === 'sent_to_provider' && (
-                                    <button
-                                        onClick={() => onUpdateStatus(warranty.id, 'in_store')}
-                                        className="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
-                                    >
-                                        <PackageCheck className="w-3.5 h-3.5" /> Recibir en Tienda
-                                    </button>
-                                )}
-                                {warranty.status === 'in_store' && (
-                                    <button
-                                        onClick={() => onUpdateStatus(warranty.id, 'delivered')}
-                                        className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
-                                    >
-                                        <CheckCircle2 className="w-3.5 h-3.5" /> Entregar a Cliente
-                                    </button>
-                                )}
+                                <div className="flex gap-2">
+                                    {warranty.status === 'received' && (
+                                        <button
+                                            onClick={() => onUpdateStatus(warranty.id, 'sent_to_provider')}
+                                            className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                                        >
+                                            <Truck className="w-3.5 h-3.5" /> Enviar
+                                        </button>
+                                    )}
+                                    {warranty.status === 'sent_to_provider' && (
+                                        <button
+                                            onClick={() => onUpdateStatus(warranty.id, 'in_store')}
+                                            className="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                                        >
+                                            <PackageCheck className="w-3.5 h-3.5" /> Recibir
+                                        </button>
+                                    )}
+                                    {warranty.status === 'in_store' && (
+                                        <button
+                                            onClick={() => onUpdateStatus(warranty.id, 'delivered')}
+                                            className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                                        >
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> Entregar
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

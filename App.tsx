@@ -227,6 +227,7 @@ create table if not exists public.warranties (
   issue_description text not null,
   physical_condition text not null,
   contact_number text not null,
+  ticket_image text,
   status text not null default 'received', -- received, sent_to_provider, in_store, delivered
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -427,6 +428,7 @@ create policy "Authenticated users can do everything on warranties" on public.wa
           issueDescription: row.issue_description,
           physicalCondition: row.physical_condition,
           contactNumber: row.contact_number,
+          ticketImage: row.ticket_image,
           status: row.status
         }));
         setWarranties(formattedWarranties);
@@ -656,6 +658,7 @@ create policy "Authenticated users can do everything on warranties" on public.wa
         issue_description: newWarranty.issueDescription,
         physical_condition: newWarranty.physicalCondition,
         contact_number: newWarranty.contactNumber,
+        ticket_image: newWarranty.ticketImage,
         status: newWarranty.status
       };
 
@@ -677,6 +680,7 @@ create policy "Authenticated users can do everything on warranties" on public.wa
           issueDescription: row.issue_description,
           physicalCondition: row.physical_condition,
           contactNumber: row.contact_number,
+          ticketImage: row.ticket_image,
           status: row.status
         };
         setWarranties(prev => [addedWarranty, ...prev]);
