@@ -44,7 +44,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
     return acc;
   }, {} as Record<string, number>);
 
-  const topBrandToday = Object.entries(brandCounts).sort((a, b) => b[1] - a[1])[0]?.[0] as Brand | undefined;
+  const topBrandToday = Object.entries(brandCounts).sort((a, b) => (b[1] as number) - (a[1] as number))[0]?.[0] as Brand | undefined;
 
   // --- FILTER LOGIC ---
   const filteredClosings = useMemo(() => {
@@ -140,7 +140,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
       return acc;
     }, {} as Record<string, number>);
 
-    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    const top = Object.entries(counts).sort((a, b) => (b[1] as number) - (a[1] as number))[0];
     return top ? (top[0] as Brand) : null;
   };
 
@@ -150,7 +150,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
       acc[sale.brand] = (acc[sale.brand] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    return Object.entries(counts).sort((a, b) => (b[1] as number) - (a[1] as number));
   };
 
   const handlePerformClose = () => {
@@ -364,47 +364,46 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                   <div
                     id={`daily-close-${close.id}`}
                     key={close.id}
-                    className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden group ${isExpanded ? 'border-blue-200 shadow-md ring-1 ring-blue-100' : 'border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100'}`}
+                    className={`bg-white rounded-xl border transition-all duration-200 overflow-hidden group ${isExpanded ? 'border-blue-200 shadow-md ring-1 ring-blue-100' : 'border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100'}`}
                   >
 
-                    {/* Header Row */}
+                    {/* Header Row - Compact */}
                     <div
                       onClick={() => toggleExpand(close.id)}
-                      className="p-5 flex flex-col md:flex-row items-stretch md:items-center gap-6 cursor-pointer"
+                      className="p-3 flex flex-col md:flex-row items-stretch md:items-center gap-4 cursor-pointer"
                     >
-                      {/* Date Badge */}
-                      <div className="flex flex-row md:flex-col items-center justify-center md:w-20 md:h-20 bg-blue-50/50 rounded-xl border border-blue-100 text-blue-700 shrink-0 gap-3 md:gap-0 p-3 md:p-0">
-                        <span className="text-2xl md:text-3xl font-black leading-none">{dateObj.getDate()}</span>
-                        <span className="text-sm font-bold uppercase tracking-wider">{dateObj.toLocaleDateString('es-MX', { month: 'short' })}</span>
-                        <span className="md:hidden text-slate-400 font-normal text-sm ml-auto">{dateObj.getFullYear()}</span>
+                      {/* Date Badge - Compact */}
+                      <div className="flex flex-row md:flex-col items-center justify-center md:w-16 md:h-16 bg-blue-50/50 rounded-lg border border-blue-100 text-blue-700 shrink-0 gap-3 md:gap-0 p-2 md:p-0">
+                        <span className="text-xl md:text-2xl font-black leading-none">{dateObj.getDate()}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">{dateObj.toLocaleDateString('es-MX', { month: 'short' })}</span>
+                        <span className="md:hidden text-slate-400 font-normal text-xs ml-auto">{dateObj.getFullYear()}</span>
                       </div>
 
-                      {/* Info Grid */}
-                      <div className="flex-1 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-4 gap-x-4 items-center">
-                        <div className="col-span-2 md:col-span-1">
-                          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Día</p>
-                          <p className="font-semibold text-slate-800 capitalize">{dateObj.toLocaleDateString('es-MX', { weekday: 'long' })}</p>
-                          <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(close.closedAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
+                      {/* Info Grid - Compact */}
+                      <div className="flex-1 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-2 gap-x-4 items-center">
+                        <div className="col-span-2 md:col-span-1 leading-tight">
+                          <p className="font-semibold text-slate-800 capitalize text-sm">{dateObj.toLocaleDateString('es-MX', { weekday: 'long' })}</p>
+                          <p className="text-[10px] text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(close.closedAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
 
                         <div>
-                          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Ventas</p>
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                            <span className="font-bold text-slate-700">{close.totalSales}</span>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ventas</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                            <span className="font-bold text-slate-700 text-sm">{close.totalSales}</span>
                           </div>
                         </div>
 
                         <div>
-                          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Ingresos</p>
-                          <span className="font-bold text-slate-900 bg-green-50 text-green-700 px-2 py-0.5 rounded-lg border border-green-100">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ingresos</p>
+                          <span className="font-bold text-slate-900 bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100 text-sm">
                             ${close.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
 
                         <div>
-                          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Sin IVA</p>
-                          <span className="font-bold text-slate-700 text-sm">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Sin IVA</p>
+                          <span className="font-bold text-slate-700 text-xs">
                             ${(close.totalRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
@@ -412,7 +411,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                         <div className="hidden md:block text-right">
                           {close.topBrand !== 'N/A' && BRAND_CONFIGS[close.topBrand as Brand] && (
                             <span
-                              className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wide ${BRAND_CONFIGS[close.topBrand as Brand].colorClass}`}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide ${BRAND_CONFIGS[close.topBrand as Brand].colorClass}`}
                               style={BRAND_CONFIGS[close.topBrand as Brand].colorClass.includes('text-black') ? { color: 'black' } : {}}
                             >
                               {BRAND_CONFIGS[close.topBrand as Brand].label}
@@ -422,41 +421,41 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                       </div>
 
                       {/* Chevron */}
-                      <div className={`text-slate-300 md:ml-4 transition-transform duration-300 ${isExpanded ? 'rotate-180 text-blue-500' : 'group-hover:text-slate-400'}`}>
-                        <ChevronDown className="w-6 h-6" />
+                      <div className={`text-slate-300 md:ml-2 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-blue-500' : 'group-hover:text-slate-400'}`}>
+                        <ChevronDown className="w-5 h-5" />
                       </div>
                     </div>
 
                     {/* Expanded Content */}
                     {isExpanded && (
-                      <div className="border-t border-slate-100 bg-slate-50/50 p-4 md:p-6 animate-in slide-in-from-top-2 duration-300">
-                        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                      <div className="border-t border-slate-100 bg-slate-50/50 p-3 md:p-4 animate-in slide-in-from-top-2 duration-200">
+                        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                           {/* BRAND STATS SUMMARY */}
-                          <div className="p-4 bg-slate-50 border-b border-slate-200">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Estadística por Marcas</h4>
+                          <div className="p-3 bg-slate-50 border-b border-slate-200">
+                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Estadística por Marcas</h4>
                             <div className="flex flex-wrap gap-2">
                               {Object.entries(
                                 daySales.reduce((acc, s) => {
                                   acc[s.brand] = (acc[s.brand] || 0) + 1;
                                   return acc;
                                 }, {} as Record<string, number>)
-                              ).sort((a, b) => b[1] - a[1]).map(([brand, count]) => (
-                                <div key={brand} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-100 shadow-sm">
-                                  <span className={`w-2 h-2 rounded-full ${BRAND_CONFIGS[brand as Brand]?.colorClass?.split(' ')[0] || 'bg-slate-500'}`} style={{ backgroundColor: BRAND_CONFIGS[brand as Brand]?.hex }}></span>
-                                  <span className="text-xs font-bold text-slate-700">{BRAND_CONFIGS[brand as Brand]?.label || brand}</span>
-                                  <span className="text-xs font-mono text-slate-400 bg-slate-100 px-1.5 rounded ml-1">{count}</span>
+                              ).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([brand, count]) => (
+                                <div key={brand} className="flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-slate-100 shadow-sm">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${BRAND_CONFIGS[brand as Brand]?.colorClass?.split(' ')[0] || 'bg-slate-500'}`} style={{ backgroundColor: BRAND_CONFIGS[brand as Brand]?.hex }}></span>
+                                  <span className="text-[10px] font-bold text-slate-700">{BRAND_CONFIGS[brand as Brand]?.label || brand}</span>
+                                  <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1 rounded ml-1">{count}</span>
                                 </div>
                               ))}
                             </div>
                           </div>
-
-                          <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider">
+                          {/* ... (rest of daily expanded table) ... */}
+                          <table className="w-full text-xs text-left">
+                            <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider">
                               <tr>
-                                <th className="px-4 py-3 border-b border-slate-100">Factura</th>
-                                <th className="px-4 py-3 border-b border-slate-100">Cliente</th>
-                                <th className="px-4 py-3 border-b border-slate-100">Marca</th>
-                                <th className="px-4 py-3 border-b border-slate-100 text-right">Precio</th>
+                                <th className="px-3 py-2 border-b border-slate-100">Factura</th>
+                                <th className="px-3 py-2 border-b border-slate-100">Cliente</th>
+                                <th className="px-3 py-2 border-b border-slate-100">Marca</th>
+                                <th className="px-3 py-2 border-b border-slate-100 text-right">Precio</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -466,20 +465,22 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                                   onClick={() => setSelectedSale(sale)}
                                   className="hover:bg-blue-50/50 transition-colors cursor-pointer group/row"
                                 >
-                                  <span className="text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wide flex items-center gap-1">
-                                    {sale.ticketImage && <ImageIcon className="w-3 h-3 text-blue-400" />}
-                                    #{String(sale.invoiceNumber).replace(/[^0-9-]/g, '')}
-                                  </span>
-                                  <td className="px-4 py-3 text-slate-700 font-medium">{sale.customerName}</td>
-                                  <td className="px-4 py-3">
+                                  <td className="px-3 py-2">
+                                    <span className="text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wide flex items-center gap-1 w-fit">
+                                      {sale.ticketImage && <ImageIcon className="w-3 h-3 text-blue-400" />}
+                                      #{String(sale.invoiceNumber).replace(/[^0-9-]/g, '')}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-slate-700 font-medium truncate max-w-[120px]">{sale.customerName}</td>
+                                  <td className="px-3 py-2">
                                     <span
-                                      className={`px-2 py-0.5 rounded text-[10px] font-bold text-white shadow-sm ${BRAND_CONFIGS[sale.brand].colorClass}`}
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold text-white shadow-sm ${BRAND_CONFIGS[sale.brand].colorClass}`}
                                       style={BRAND_CONFIGS[sale.brand].colorClass.includes('text-black') ? { color: 'black' } : {}}
                                     >
                                       {BRAND_CONFIGS[sale.brand].label}
                                     </span>
                                   </td>
-                                  <td className="px-4 py-3 text-right font-bold text-slate-700">
+                                  <td className="px-3 py-2 text-right font-bold text-slate-700">
                                     ${sale.price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                                   </td>
                                 </tr>
@@ -507,45 +508,49 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                 const isExpanded = expandedMonthKey === month.monthKey;
                 const monthTopBrand = getMonthTopBrand(month.monthKey);
 
+                // Calculate monthly brand stats
+                const monthSales = sales.filter(s => s.date.startsWith(month.monthKey));
+                const monthBrandStats = calculateBrandBreakdown(monthSales);
+
                 return (
-                  <div key={month.monthKey} className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden group ${isExpanded ? 'border-indigo-200 shadow-md ring-1 ring-indigo-50' : 'border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100'}`}>
+                  <div key={month.monthKey} className={`bg-white rounded-xl border transition-all duration-200 overflow-hidden group ${isExpanded ? 'border-indigo-200 shadow-md ring-1 ring-indigo-50' : 'border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100'}`}>
 
                     <div
                       onClick={() => toggleMonthExpand(month.monthKey)}
-                      className="p-5 flex flex-col md:flex-row items-stretch md:items-center gap-6 cursor-pointer bg-gradient-to-r from-transparent to-transparent hover:from-indigo-50/30"
+                      className="p-3 flex flex-col md:flex-row items-stretch md:items-center gap-4 cursor-pointer bg-gradient-to-r from-transparent to-transparent hover:from-indigo-50/30"
                     >
                       {/* Month Badge */}
-                      <div className="flex flex-row md:flex-col items-center justify-center md:w-20 md:h-20 bg-indigo-50/50 rounded-xl border border-indigo-100 text-indigo-700 shrink-0 gap-3 md:gap-0 p-3 md:p-0">
-                        <span className="text-xl md:text-2xl font-black uppercase">{month.label.substring(0, 3)}</span>
-                        <span className="text-xs font-bold text-indigo-400">{month.year}</span>
+                      <div className="flex flex-row md:flex-col items-center justify-center md:w-16 md:h-16 bg-indigo-50/50 rounded-lg border border-indigo-100 text-indigo-700 shrink-0 gap-3 md:gap-0 p-2 md:p-0">
+                        <span className="text-lg md:text-xl font-black uppercase">{month.label.substring(0, 3)}</span>
+                        <span className="text-[10px] font-bold text-indigo-400">{month.year}</span>
                       </div>
 
                       {/* Info Grid */}
-                      <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-y-4 gap-x-4 items-center">
-                        <div className="col-span-2 md:col-span-1">
-                          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Periodo</p>
-                          <p className="font-semibold text-slate-800">{month.label}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">{month.closings.length} cortes realizados</p>
+                      <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-y-2 gap-x-4 items-center">
+                        <div className="col-span-2 md:col-span-1 leading-tight">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Periodo</p>
+                          <p className="font-semibold text-slate-800 text-sm">{month.label}</p>
+                          <p className="text-[10px] text-slate-400">{month.closings.length} cortes</p>
                         </div>
 
                         <div>
-                          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Total Ventas</p>
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                            <span className="font-bold text-slate-700">{month.totalSales}</span>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ventas</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                            <span className="font-bold text-slate-700 text-sm">{month.totalSales}</span>
                           </div>
                         </div>
 
                         <div>
-                          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Total Ingresos</p>
-                          <span className="font-bold text-slate-900 bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-lg border border-indigo-100">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ingresos</p>
+                          <span className="font-bold text-slate-900 bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100 text-sm">
                             ${month.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
 
                         <div>
-                          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Total Sin IVA</p>
-                          <span className="font-bold text-slate-700 text-sm">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Sin IVA</p>
+                          <span className="font-bold text-slate-700 text-xs">
                             ${(month.totalRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
@@ -553,7 +558,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                         <div className="hidden md:block text-right">
                           {monthTopBrand ? (
                             <span
-                              className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wide ${BRAND_CONFIGS[monthTopBrand].colorClass}`}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wide ${BRAND_CONFIGS[monthTopBrand].colorClass}`}
                               style={BRAND_CONFIGS[monthTopBrand].colorClass.includes('text-black') ? { color: 'black' } : {}}
                             >
                               {BRAND_CONFIGS[monthTopBrand].label}
@@ -562,18 +567,35 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                         </div>
                       </div>
 
-                      <div className={`w-8 h-8 flex items-center justify-center rounded-full text-slate-300 md:ml-4 transition-transform duration-300 origin-center ${isExpanded ? 'rotate-180 text-indigo-600 bg-indigo-100' : 'group-hover:text-slate-400'}`}>
+                      <div className={`w-8 h-8 flex items-center justify-center rounded-full text-slate-300 md:ml-2 transition-transform duration-200 origin-center ${isExpanded ? 'rotate-180 text-indigo-600 bg-indigo-100' : 'group-hover:text-slate-400'}`}>
                         <ChevronDown className="w-5 h-5" />
                       </div>
                     </div>
 
                     {isExpanded && (
-                      <div className="border-t border-slate-100 bg-slate-50/50 p-4 md:p-6 animate-in slide-in-from-top-2 duration-300">
-                        <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                          <Layers className="w-4 h-4" />
+                      <div className="border-t border-slate-100 bg-slate-50/50 p-3 md:p-4 animate-in slide-in-from-top-2 duration-200">
+                        {/* MONTHLY BRAND STATS - NEWLY ADDED */}
+                        <div className="mb-4 bg-white p-3 rounded-lg border border-slate-200">
+                          <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                            <Layers className="w-3 h-3" />
+                            Estadística Mensual por Marca
+                          </h5>
+                          <div className="flex flex-wrap gap-2">
+                            {monthBrandStats.map(([brand, count]) => (
+                              <div key={brand} className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-200 shadow-sm">
+                                <span className={`w-1.5 h-1.5 rounded-full ${BRAND_CONFIGS[brand as Brand]?.colorClass?.split(' ')[0] || 'bg-slate-500'}`} style={{ backgroundColor: BRAND_CONFIGS[brand as Brand]?.hex }}></span>
+                                <span className="text-[10px] font-bold text-slate-700">{BRAND_CONFIGS[brand as Brand]?.label || brand}</span>
+                                <span className="text-[10px] font-mono text-slate-400 bg-white border border-slate-100 px-1 rounded ml-1">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                          <Layers className="w-3 h-3" />
                           Desglose Diario
                         </h5>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           {month.closings.map(close => (
                             <div
                               key={close.id}
@@ -581,32 +603,31 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                                 const daySales = sales.filter(s => s.date === close.date);
                                 setSelectedDaySummary({ date: close.date, sales: daySales });
                               }}
-                              className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-all group/day"
+                              className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-all group/day"
                             >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-slate-100 group-hover/day:bg-blue-100 flex items-center justify-center font-bold text-slate-600 group-hover/day:text-blue-600 text-sm transition-colors">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-slate-100 group-hover/day:bg-blue-100 flex items-center justify-center font-bold text-slate-600 group-hover/day:text-blue-600 text-xs transition-colors">
                                   {(() => {
                                     const [dYear, dMonth, dDay] = close.date.split('-').map(Number);
                                     return dDay;
                                   })()}
                                 </div>
                                 <div>
-                                  <p className="font-bold text-sm text-slate-800 group-hover/day:text-blue-700">
+                                  <p className="font-bold text-xs text-slate-800 group-hover/day:text-blue-700 capitalize">
                                     {(() => {
                                       const [dYear, dMonth, dDay] = close.date.split('-').map(Number);
                                       const dDate = new Date(dYear, dMonth - 1, dDay);
-                                      return dDate.toLocaleDateString('es-MX', { weekday: 'long' });
+                                      return dDate.toLocaleDateString('es-MX', { weekday: 'short' }) + '.';
                                     })()}
                                   </p>
-                                  <p className="text-xs text-slate-500">{close.totalSales} ventas</p>
+                                  <p className="text-[10px] text-slate-500">{close.totalSales} ventas</p>
                                 </div>
                               </div>
                               <div className="text-right">
-                                <p className="font-bold text-green-600 text-sm">${close.totalRevenue.toLocaleString('es-MX')}</p>
+                                <p className="font-bold text-green-600 text-xs">${close.totalRevenue.toLocaleString('es-MX')}</p>
                                 <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
                                   Neto: ${(close.totalRevenue / 1.16).toLocaleString('es-MX', { maximumFractionDigits: 0 })}
                                 </p>
-                                <p className="text-[10px] text-blue-500 font-medium mt-1 group-hover/day:text-blue-600">Ver Detalles &rarr;</p>
                               </div>
                             </div>
                           ))}
