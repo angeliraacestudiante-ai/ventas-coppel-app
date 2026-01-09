@@ -178,27 +178,30 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
               )}
             </div>
 
-            <div className="relative group">
-              <div
-                className={`border px-3 py-1 rounded-full text-xs font-mono font-bold flex items-center gap-2 transition-all ${manualDate
-                    ? 'bg-orange-500/20 border-orange-500/50 text-orange-200 group-hover:bg-orange-500/30'
-                    : 'bg-blue-600/30 border-blue-500/50 text-blue-100 group-hover:bg-blue-600/40'
-                  } ${role === 'admin' ? 'cursor-pointer' : 'cursor-default'}`}
-              >
-                {manualDate ? targetDateStr : 'HOY'}
-                {role === 'admin' && <ChevronDown className="w-3 h-3 opacity-50" />}
-              </div>
-
-              {role === 'admin' && (
+            {role === 'admin' ? (
+              <label className="relative cursor-pointer group select-none">
+                <div
+                  className={`border px-3 py-1 rounded-full text-xs font-mono font-bold flex items-center gap-2 transition-all ${manualDate
+                      ? 'bg-orange-500/20 border-orange-500/50 text-orange-200 group-hover:bg-orange-500/30'
+                      : 'bg-blue-600/30 border-blue-500/50 text-blue-100 group-hover:bg-blue-600/40'
+                    }`}
+                >
+                  {manualDate ? targetDateStr : 'HOY'}
+                  <ChevronDown className="w-3 h-3 opacity-50" />
+                </div>
                 <input
                   type="date"
                   value={manualDate || todayStr}
                   onChange={(e) => setManualDate(e.target.value)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  title="Cambiar fecha"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  style={{ zIndex: 50 }}
                 />
-              )}
-            </div>
+              </label>
+            ) : (
+              <div className="border px-3 py-1 rounded-full text-xs font-mono font-bold bg-blue-600/30 border-blue-500/50 text-blue-100 cursor-default">
+                HOY
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
