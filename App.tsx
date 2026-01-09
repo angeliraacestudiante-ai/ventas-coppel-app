@@ -894,7 +894,7 @@ create policy "Authenticated users can do everything on warranties" on public.wa
           <NavButton view="list" icon={LayoutList} label="Registro de Ventas" />
           <NavButton view="dashboard" icon={BarChart3} label="Estadísticas" />
           <NavButton view="closings" icon={CalendarCheck} label="Cierre de Venta" />
-          {(userProfile?.role === 'admin' || userProfile?.email === 'jeissonjessy@gmail.com') && (
+          {(userProfile?.role === 'admin' || userProfile?.email === 'jeissonjessy@gmail.com' || userProfile?.id === 'b4ba233c-afa9-42fc-9bed-afa0e9be3f8c') && (
             <NavButton view="warranties" icon={ShieldAlert} label="Garantías" />
           )}
         </div>
