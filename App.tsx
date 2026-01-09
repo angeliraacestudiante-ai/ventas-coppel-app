@@ -827,7 +827,12 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
               <Dashboard sales={sales} role={userProfile?.role} />
             )}
             {currentView === 'closings' && (
-              <DailyClosings sales={sales} closings={closings} onCloseDay={handleCloseDay} />
+              <DailyClosings
+                sales={sales}
+                closings={closings}
+                onCloseDay={handleCloseDay}
+                role={userProfile?.role}
+              />
             )}
           </div>
 
