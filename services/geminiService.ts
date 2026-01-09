@@ -158,14 +158,5 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
 
   // Mostrar reporte detallado al usuario
   throw new Error(`FALLO TOTAL:\n${attemptLogs.join('\n')}\n\nIntenta con otra imagen o revisa Vercel.`);
-
-  if (errorMessage.includes("500")) {
-    throw new Error("💥 Error interno de Google (Error 500). Algo falló en los servidores de IA. Intenta de nuevo.");
-  }
-
-  if (errorMessage.includes("API key")) {
-    throw new Error("🔑 Error de configuración. La API Key no es válida o no se encuentra.");
-  }
-
-  throw new Error("⚠️ No se pudo leer el ticket automáticamente. Por favor ingresa los datos manualmente. (Detalle: " + (errorMessage.slice(0, 50)) + "...)");
 };
+

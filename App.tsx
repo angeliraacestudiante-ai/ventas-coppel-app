@@ -853,10 +853,7 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
         </button>
       )}
 
-      {/* Version Indicator for Debugging */}
-      <div className="fixed bottom-1 left-2 text-[10px] text-slate-500 opacity-50 pointer-events-none z-50">
-        v2.0 Check: {import.meta.env.VITE_GEMINI_API_KEY_2 ? 'OK' : 'NoKeys'}
-      </div>
+
     </div>
   );
 };
