@@ -347,9 +347,9 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
             <div className="p-2 bg-indigo-50 rounded-lg">
               <DollarSign className="w-5 h-5 text-indigo-600" />
             </div>
-            <p className="text-slate-500 text-sm font-bold">Venta Bruta Total (Histórico)</p>
+            <p className="text-slate-500 text-sm font-bold">Venta Bruta (Mes Actual)</p>
           </div>
-          <h3 className="text-2xl font-bold text-slate-800">${totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</h3>
+          <h3 className="text-2xl font-bold text-slate-800">${currentMonthRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</h3>
           <p className="text-xs text-slate-400 mt-1">IVA Incluido</p>
         </div>
 
@@ -358,9 +358,9 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
             <div className="p-2 bg-blue-50 rounded-lg">
               <TrendingUp className="w-5 h-5 text-blue-600" />
             </div>
-            <p className="text-slate-500 text-sm font-bold">Equipos Vendidos (Histórico)</p>
+            <p className="text-slate-500 text-sm font-bold">Equipos (Mes Actual)</p>
           </div>
-          <h3 className="text-2xl font-bold text-slate-800">{totalSalesCount}</h3>
+          <h3 className="text-2xl font-bold text-slate-800">{currentMonthCount}</h3>
           <p className="text-xs text-slate-400 mt-1">Dispositivos móviles</p>
         </div>
 
@@ -369,7 +369,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
             <div className="p-2 bg-emerald-50 rounded-lg">
               <Trophy className="w-5 h-5 text-emerald-600" />
             </div>
-            <p className="text-slate-500 text-sm font-bold">Marca Líder</p>
+            <p className="text-slate-500 text-sm font-bold">Marca Líder (Mes Actual)</p>
           </div>
           <h3 className="text-2xl font-bold text-slate-800 truncate">
             {[...brandData].sort((a, b) => b.value - a.value)[0]?.name || 'N/A'}

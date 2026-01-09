@@ -122,6 +122,15 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
     return top ? (top[0] as Brand) : null;
   };
 
+  // Helper to calculate brand breakdown for a list of sales
+  const calculateBrandBreakdown = (salesList: Sale[]) => {
+    const counts = salesList.reduce((acc, sale) => {
+      acc[sale.brand] = (acc[sale.brand] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  };
+
   const handlePerformClose = () => {
     if (targetCount === 0) {
       alert(`No hay ventas registradas para la fecha ${targetDateStr}.`);
