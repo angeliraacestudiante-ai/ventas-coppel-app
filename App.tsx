@@ -749,6 +749,31 @@ create policy "Authenticated users can do everything on warranties" on public.wa
     }
   };
 
+  const handleDeleteWarranty = async (warranty: Warranty) => {
+    if (!window.confirm("¿Estás seguro de eliminar esta garantía PERMANENTEMENTE?")) return;
+    if (!session) return;
+
+    // Optimistic remove
+    setWarranties(prev => prev.filter(w => w.id !== warranty.id));
+
+    try {
+      // 1. Delete image from Drive if exists
+      if (warranty.ticketImage && warranty.ticketImage.includes('drive.google.com')) {
+        // Fire and forget image deletion to speed up UI, or await if strict
+        deleteImageFromDriveScript(warranty.ticketImage).catch(e => console.error("Drive delete error", e));
+      }
+
+      // 2. Delete from Supabase
+      const { error } = await supabase.from('warranties').delete().eq('id', warranty.id);
+      if (error) throw error;
+
+    } catch (error: any) {
+      console.error('Error deleting warranty:', error);
+      alert(`Error al eliminar garantía: ${formatError(error)}`);
+      fetchData(); // Rollback
+    }
+  };
+
   const NavButton = ({ view, icon: Icon, label }: { view: 'form' | 'list' | 'dashboard' | 'closings' | 'warranties', icon: any, label: string }) => {
     const isActive = currentView === view;
     return (
@@ -1011,7 +1036,9 @@ create policy "Authenticated users can do everything on warranties" on public.wa
                 warranties={warranties}
                 onAddWarranty={handleAddWarranty}
                 onUpdateStatus={handleUpdateWarrantyStatus}
+                onDeleteWarranty={handleDeleteWarranty}
                 brandConfigs={BRAND_CONFIGS}
+                isAdmin={userProfile?.role === 'admin'}
               />
             )}
           </div>

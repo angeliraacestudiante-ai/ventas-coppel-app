@@ -17,7 +17,8 @@ import {
     Share2,
     Image as ImageIcon,
     Loader2,
-    ExternalLink
+    ExternalLink,
+    Trash2
 } from 'lucide-react';
 import { Warranty, Brand, BrandConfig } from '../types';
 import { uploadImageToDriveScript } from '../services/googleAppsScriptService';
@@ -26,14 +27,18 @@ interface WarrantiesProps {
     warranties: Warranty[];
     onAddWarranty: (warranty: Omit<Warranty, 'id'>) => Promise<void>;
     onUpdateStatus: (id: string, status: Warranty['status']) => Promise<void>;
+    onDeleteWarranty: (warranty: Warranty) => Promise<void>;
     brandConfigs: Record<Brand, BrandConfig>;
+    isAdmin: boolean;
 }
 
 const Warranties: React.FC<WarrantiesProps> = ({
     warranties,
     onAddWarranty,
     onUpdateStatus,
-    brandConfigs
+    onDeleteWarranty,
+    brandConfigs,
+    isAdmin
 }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -207,6 +212,20 @@ ${warranty.ticketImage ? `*📷 Foto:* ${warranty.ticketImage}` : ''}
 
         const matchesFilter = filterStatus === 'all' || w.status === filterStatus;
         return matchesSearch && matchesFilter;
+    });
+
+    // Sort by Status Priority: received > sent_to_provider > in_store > delivered
+    const statusPriority: Record<string, number> = {
+        'received': 0,
+        'sent_to_provider': 1,
+        'in_store': 2,
+        'delivered': 3
+    };
+
+    const sortedWarranties = filteredWarranties.sort((a, b) => {
+        const priorityA = statusPriority[a.status] ?? 99;
+        const priorityB = statusPriority[b.status] ?? 99;
+        return priorityA - priorityB;
     });
 
     const getStatusBadge = (status: Warranty['status']) => {
@@ -483,7 +502,7 @@ ${warranty.ticketImage ? `*📷 Foto:* ${warranty.ticketImage}` : ''}
 
             {/* Warranties List */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filteredWarranties.map(warranty => (
+                {sortedWarranties.map(warranty => (
                     <div key={warranty.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden flex flex-col h-full">
                         {/* Brand Stripe */}
                         <div className={`absolute top-0 left-0 w-1 h-full ${brandConfigs[warranty.brand]?.colorClass?.replace('text-', 'bg-') || 'bg-slate-500'}`}></div>
@@ -503,7 +522,21 @@ ${warranty.ticketImage ? `*📷 Foto:* ${warranty.ticketImage}` : ''}
                                         </span>
                                     )}
                                 </div>
-                                {getStatusBadge(warranty.status)}
+                                <div className="flex items-center gap-2">
+                                    {getStatusBadge(warranty.status)}
+                                    {isAdmin && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDeleteWarranty(warranty);
+                                            }}
+                                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Eliminar Garantía"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Device Info */}
