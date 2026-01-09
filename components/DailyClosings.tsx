@@ -205,27 +205,27 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Ventas {manualDate ? 'del día' : 'Hoy'}</p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 md:p-4 border border-white/5 overflow-hidden">
+              <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-wider mb-1 truncate">Ventas {manualDate ? 'del día' : 'Hoy'}</p>
               <div className="flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-blue-400" />
-                <span className="text-3xl font-bold">{targetCount}</span>
+                <ShoppingBag className="w-5 h-5 text-blue-400 shrink-0" />
+                <span className="text-xl md:text-3xl font-bold truncate">{targetCount}</span>
               </div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Ingreso Total</p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 md:p-4 border border-white/5 overflow-hidden">
+              <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-wider mb-1 truncate">Ingreso Total</p>
               <div className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-green-400" />
-                <span className="text-3xl font-bold">
+                <DollarSign className="w-5 h-5 text-green-400 shrink-0" />
+                <span className="text-xl md:text-3xl font-bold truncate">
                   ${targetRevenue.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
               </div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Sin IVA</p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 md:p-4 border border-white/5 overflow-hidden">
+              <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-wider mb-1 truncate">Total Sin IVA</p>
               <div className="flex items-center gap-2">
-                <Tag className="w-5 h-5 text-purple-400" />
-                <span className="text-3xl font-bold">
+                <Tag className="w-5 h-5 text-purple-400 shrink-0" />
+                <span className="text-lg md:text-2xl font-bold truncate" title={(targetRevenue / 1.16).toLocaleString('es-MX')}>
                   ${(targetRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
