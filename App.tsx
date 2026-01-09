@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, LayoutList, BarChart3, Menu, X, CalendarCheck, Plus, LogOut, User as UserIcon, ChevronRight, Loader2, RefreshCcw, Database, AlertTriangle, Copy, Check, Shield } from 'lucide-react';
+import { Smartphone, LayoutList, BarChart3, Menu, X, CalendarCheck, Plus, LogOut, User as UserIcon, ChevronRight, Loader2, RefreshCcw, Database, AlertTriangle, Copy, Check, Shield, ShieldAlert } from 'lucide-react';
 import SalesForm from './components/SalesForm';
 import SalesList from './components/SalesList';
 import Dashboard from './components/Dashboard';
 import DailyClosings from './components/DailyClosings';
+import Warranties from './components/Warranties';
 import AuthForm from './components/AuthForm';
-import { Sale, DailyClose, Brand, UserProfile } from './types';
+import { Sale, DailyClose, Brand, UserProfile, Warranty } from './types';
+import { BRAND_CONFIGS } from './constants';
 import { supabase } from './services/supabaseClient';
 import { deleteImageFromDriveScript } from './services/googleAppsScriptService';
 
@@ -17,9 +19,9 @@ const App: React.FC = () => {
 
   // App State
   // App State
-  const [currentView, setCurrentView] = useState<'form' | 'list' | 'dashboard' | 'closings'>(() => {
+  const [currentView, setCurrentView] = useState<'form' | 'list' | 'dashboard' | 'closings' | 'warranties'>(() => {
     const saved = localStorage.getItem('app_current_view');
-    return (saved as 'form' | 'list' | 'dashboard' | 'closings') || 'list';
+    return (saved as 'form' | 'list' | 'dashboard' | 'closings' | 'warranties') || 'list';
   });
 
   useEffect(() => {
@@ -53,6 +55,7 @@ const App: React.FC = () => {
   }, []);
   const [sales, setSales] = useState<Sale[]>([]);
   const [closings, setClosings] = useState<DailyClose[]>([]);
+  const [warranties, setWarranties] = useState<Warranty[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -212,6 +215,29 @@ create policy "Authenticated users can view goals" on public.monthly_goals for s
 -- Usamos is_admin() si está ya definido, si no, fallback a authenticated para permitir upsert si la función falla o no existe aun.
 drop policy if exists "Authenticated users can upsert goals" on public.monthly_goals;
 create policy "Authenticated users can upsert goals" on public.monthly_goals for all to authenticated using (true) with check (true);
+create policy "Authenticated users can upsert goals" on public.monthly_goals for all to authenticated using (true) with check (true);
+
+-- 6. GARANTÍAS
+create table if not exists public.warranties (
+  id uuid default gen_random_uuid() primary key,
+  reception_date text not null,
+  brand text not null,
+  model text not null,
+  imei text,
+  issue_description text not null,
+  physical_condition text not null,
+  contact_number text not null,
+  status text not null default 'received', -- received, sent_to_provider, in_store, delivered
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.warranties enable row level security;
+
+-- Policies for Warranties
+drop policy if exists "Admins can do everything on warranties" on public.warranties;
+-- Allow admins full access, and perhaps sellers read/write access too if needed later. 
+-- For now, to be safe and functional:
+create policy "Authenticated users can do everything on warranties" on public.warranties for all to authenticated using (true) with check (true);
 `;
 
   // --- AUTH CHECK ---
@@ -236,8 +262,10 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
         fetchUserProfile(session.user.id);
       } else {
         setUserProfile(null);
+        setUserProfile(null);
         setSales([]); // Clear sensitive data on logout
         setClosings([]);
+        setWarranties([]);
       }
       setAuthLoading(false);
     });
@@ -372,6 +400,40 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
       }));
 
       setClosings(formattedClosings);
+
+      // 3. Fetch Warranties
+      const { data: warrantiesData, error: warrantiesError } = await supabase
+        .from('warranties')
+        .select('*')
+        .order('reception_date', { ascending: false });
+
+      if (warrantiesError) {
+        // Only warn if table missing, might be strictly optional feature for now
+        if (warrantiesError.code === '42P01') {
+          console.warn("Table 'warranties' missing. Setup update needed.");
+          setIsSetupNeeded(true);
+        } else {
+          throw warrantiesError;
+        }
+      }
+
+      if (warrantiesData) {
+        const formattedWarranties: Warranty[] = warrantiesData.map((row: any) => ({
+          id: row.id,
+          receptionDate: row.reception_date,
+          brand: row.brand as Brand,
+          model: row.model,
+          imei: row.imei,
+          issueDescription: row.issue_description,
+          physicalCondition: row.physical_condition,
+          contactNumber: row.contact_number,
+          status: row.status
+        }));
+        setWarranties(formattedWarranties);
+      } else {
+        setWarranties([]);
+      }
+
 
     } catch (error: any) {
       console.error('Error fetching data from Supabase:', error);
@@ -582,7 +644,73 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
     }
   };
 
-  const NavButton = ({ view, icon: Icon, label }: { view: 'form' | 'list' | 'dashboard' | 'closings', icon: any, label: string }) => {
+  const handleAddWarranty = async (newWarranty: Omit<Warranty, 'id'>) => {
+    if (!session) return;
+    setIsLoading(true);
+    try {
+      const dbPayload = {
+        reception_date: newWarranty.receptionDate,
+        brand: newWarranty.brand,
+        model: newWarranty.model,
+        imei: newWarranty.imei,
+        issue_description: newWarranty.issueDescription,
+        physical_condition: newWarranty.physicalCondition,
+        contact_number: newWarranty.contactNumber,
+        status: newWarranty.status
+      };
+
+      const { data, error } = await supabase
+        .from('warranties')
+        .insert([dbPayload])
+        .select();
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const row = data[0];
+        const addedWarranty: Warranty = {
+          id: row.id,
+          receptionDate: row.reception_date,
+          brand: row.brand as Brand,
+          model: row.model,
+          imei: row.imei,
+          issueDescription: row.issue_description,
+          physicalCondition: row.physical_condition,
+          contactNumber: row.contact_number,
+          status: row.status
+        };
+        setWarranties(prev => [addedWarranty, ...prev]);
+        alert("Garantía registrada correctamente.");
+      }
+    } catch (error: any) {
+      console.error('Error adding warranty:', error);
+      alert(`Error al registrar garantía: ${formatError(error)}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateWarrantyStatus = async (id: string, newStatus: Warranty['status']) => {
+    if (!session) return;
+    // Optimistic update
+    setWarranties(prev => prev.map(w => w.id === id ? { ...w, status: newStatus } : w));
+
+    try {
+      const { error } = await supabase
+        .from('warranties')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error('Error updating status:', error);
+      alert(`Error al actualizar estado: ${formatError(error)}`);
+      // Rollback
+      fetchData();
+    }
+  };
+
+  const NavButton = ({ view, icon: Icon, label }: { view: 'form' | 'list' | 'dashboard' | 'closings' | 'warranties', icon: any, label: string }) => {
     const isActive = currentView === view;
     return (
       <button
@@ -725,6 +853,9 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
           <NavButton view="list" icon={LayoutList} label="Registro de Ventas" />
           <NavButton view="dashboard" icon={BarChart3} label="Estadísticas" />
           <NavButton view="closings" icon={CalendarCheck} label="Cierre de Venta" />
+          {userProfile?.role === 'admin' && (
+            <NavButton view="warranties" icon={ShieldAlert} label="Garantías" />
+          )}
         </div>
 
         {/* User Profile Section */}
@@ -770,6 +901,7 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
                 {currentView === 'form' && 'Nuevo Registro'}
                 {currentView === 'dashboard' && 'Panel de Rendimiento'}
                 {currentView === 'closings' && 'Cierre Diario'}
+                {currentView === 'warranties' && 'Gestión de Garantías'}
                 {isLoading && <Loader2 className="w-6 h-6 animate-spin text-blue-600" />}
               </h1>
               <p className="text-slate-500 mt-1 font-medium">
@@ -777,6 +909,7 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
                 {currentView === 'form' && 'Completa los detalles de la venta del dispositivo.'}
                 {currentView === 'dashboard' && 'Visualiza métricas clave y cumplimiento de metas.'}
                 {currentView === 'closings' && 'Realiza cortes y revisa ingresos acumulados.'}
+                {currentView === 'warranties' && 'Administra equipos enviados a taller y su estado.'}
               </p>
             </div>
 
@@ -832,6 +965,14 @@ create policy "Authenticated users can upsert goals" on public.monthly_goals for
                 closings={closings}
                 onCloseDay={handleCloseDay}
                 role={userProfile?.role}
+              />
+            )}
+            {currentView === 'warranties' && (
+              <Warranties
+                warranties={warranties}
+                onAddWarranty={handleAddWarranty}
+                onUpdateStatus={handleUpdateWarrantyStatus}
+                brandConfigs={BRAND_CONFIGS}
               />
             )}
           </div>

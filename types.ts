@@ -64,3 +64,15 @@ export interface MonthlyGoal {
   revenue_goal: number;
   devices_goal: number;
 }
+
+export interface Warranty {
+  id: string;
+  receptionDate: string;
+  brand: Brand;
+  model: string;
+  imei?: string;
+  issueDescription: string; // falla
+  physicalCondition: string; // estado fisico
+  contactNumber: string;
+  status: 'received' | 'sent_to_provider' | 'in_store' | 'delivered';
+}
