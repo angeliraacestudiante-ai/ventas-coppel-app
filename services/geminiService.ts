@@ -9,12 +9,11 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   const mainKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY;
   if (mainKey) apiKeys.push(mainKey);
 
-  // Buscar claves adicionales (VITE_GEMINI_API_KEY_2, _3, etc.)
-  let i = 2;
-  while (import.meta.env[`VITE_GEMINI_API_KEY_${i}`]) {
-    apiKeys.push(import.meta.env[`VITE_GEMINI_API_KEY_${i}`]);
-    i++;
-  }
+  // Buscar claves adicionales de forma estática (necesario para Vite)
+  if (import.meta.env.VITE_GEMINI_API_KEY_2) apiKeys.push(import.meta.env.VITE_GEMINI_API_KEY_2);
+  if (import.meta.env.VITE_GEMINI_API_KEY_3) apiKeys.push(import.meta.env.VITE_GEMINI_API_KEY_3);
+  if (import.meta.env.VITE_GEMINI_API_KEY_4) apiKeys.push(import.meta.env.VITE_GEMINI_API_KEY_4);
+  if (import.meta.env.VITE_GEMINI_API_KEY_5) apiKeys.push(import.meta.env.VITE_GEMINI_API_KEY_5);
 
   if (apiKeys.length === 0) {
     console.error("❌ ERROR CRÍTICO: No se encontró la API Key.");
