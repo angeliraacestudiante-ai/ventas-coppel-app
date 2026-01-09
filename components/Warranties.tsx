@@ -193,14 +193,14 @@ const Warranties: React.FC<WarrantiesProps> = ({
 *📋 REPORTE DE GARANTÍA - TELCEL*
 --------------------------------
 *📅 Fecha de Recepción:* ${warranty.receptionDate}
-${warranty.possibleEntryDate ? `*� Posible Fecha Ingreso:* ${warranty.possibleEntryDate}\n` : ''}*🏷️ Marca:* ${brandConfigs[warranty.brand]?.label || warranty.brand}
+*🏷️ Marca:* ${brandConfigs[warranty.brand]?.label || warranty.brand}
 *📱 Modelo:* ${warranty.model}
 *🔢 IMEI:* ${warranty.imei || 'N/A'}
 *🔧 Falla Reportada:* ${warranty.issueDescription}
 *🔌 Accesorios:* ${warranty.accessories || 'Ninguno'}
-*� Estado Físico:* ${warranty.physicalCondition}
+*🔍 Estado Físico:* ${warranty.physicalCondition}
 ${warranty.ticketImage ? `*📷 Foto:* ${warranty.ticketImage}` : ''}
-*�📢 Estado Actual:* ${statusTexts[warranty.status]}
+*📢 Estado Actual:* ${statusTexts[warranty.status]}
 
 _Para más información, contacte a sucursal._
 `.trim();
