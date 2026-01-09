@@ -309,12 +309,14 @@ ${warranty.ticketImage ? `*📷 Foto:* ${warranty.ticketImage}` : ''}
                                         <input
                                             type="text"
                                             required
+                                            maxLength={6}
                                             placeholder="Ej. 123456"
                                             value={formData.invoiceNumber}
-                                            onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
+                                            onChange={(e) => handleNumericInput('invoiceNumber', e.target.value, 6)}
                                             className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium"
                                         />
                                     </div>
+                                    <p className="text-[10px] text-right text-slate-400">{formData.invoiceNumber.length}/6</p>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold text-slate-500 uppercase">Fecha Recepción</label>
