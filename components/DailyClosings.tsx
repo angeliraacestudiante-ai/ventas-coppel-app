@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { CalendarCheck, DollarSign, ShoppingBag, Clock, ChevronDown, ChevronUp, Lock, Receipt, X, User, Tag, Calendar, Image as ImageIcon, CalendarRange, Layers, Filter, XCircle, ArrowRight, Share2 } from 'lucide-react';
 import { Sale, DailyClose, Brand } from '../types';
 import { BRAND_CONFIGS } from '../constants';
@@ -12,6 +12,7 @@ interface DailyClosingsProps {
 
 const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseDay, role }) => {
   const [activeTab, setActiveTab] = useState<'daily' | 'monthly'>('daily');
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedMonthKey, setExpandedMonthKey] = useState<string | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -178,17 +179,29 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
             </div>
 
             <div className="relative">
-              <span className={`border px-3 py-1 rounded-full text-xs font-mono font-bold flex items-center gap-2 ${manualDate ? 'bg-orange-500/20 border-orange-500/50 text-orange-200' : 'bg-blue-600/30 border-blue-500/50 text-blue-100'}`}>
+              <button
+                onClick={() => {
+                  if (role === 'admin') {
+                    dateInputRef.current?.showPicker();
+                  }
+                }}
+                className={`border px-3 py-1 rounded-full text-xs font-mono font-bold flex items-center gap-2 transition-all ${manualDate
+                    ? 'bg-orange-500/20 border-orange-500/50 text-orange-200 hover:bg-orange-500/30'
+                    : 'bg-blue-600/30 border-blue-500/50 text-blue-100 hover:bg-blue-600/40'
+                  } ${role === 'admin' ? 'cursor-pointer' : 'cursor-default'}`}
+              >
                 {manualDate ? targetDateStr : 'HOY'}
                 {role === 'admin' && <ChevronDown className="w-3 h-3 opacity-50" />}
-              </span>
+              </button>
 
               {role === 'admin' && (
                 <input
+                  ref={dateInputRef}
                   type="date"
                   value={manualDate || todayStr}
                   onChange={(e) => setManualDate(e.target.value)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                  className="absolute top-full left-0 w-0 h-0 opacity-0 pointer-events-none"
+                  style={{ visibility: 'hidden' }}
                   title="ADMIN: Cambiar fecha"
                 />
               )}
