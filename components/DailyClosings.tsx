@@ -370,7 +370,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                     {/* Header Row - Compact */}
                     <div
                       onClick={() => toggleExpand(close.id)}
-                      className="p-3 flex flex-col md:flex-row items-stretch md:items-center gap-4 cursor-pointer"
+                      className="p-4 flex flex-col md:flex-row items-stretch md:items-center gap-4 cursor-pointer"
                     >
                       {/* Date Badge - Compact */}
                       <div className="flex flex-row md:flex-col items-center justify-center md:w-16 md:h-16 bg-blue-50/50 rounded-lg border border-blue-100 text-blue-700 shrink-0 gap-3 md:gap-0 p-2 md:p-0">
@@ -380,32 +380,31 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                       </div>
 
                       {/* Info Grid - Compact */}
-                      <div className="flex-1 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-2 gap-x-4 items-center">
+                      <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-y-2 gap-x-4 items-center">
                         <div className="col-span-2 md:col-span-1 leading-tight">
                           <p className="font-semibold text-slate-800 capitalize text-sm">{dateObj.toLocaleDateString('es-MX', { weekday: 'long' })}</p>
-                          <p className="text-[10px] text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(close.closedAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
+                          <p className="text-xs text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(close.closedAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
 
                         <div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ventas</p>
+                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ventas</p>
                           <div className="flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                             <span className="font-bold text-slate-700 text-sm">{close.totalSales}</span>
                           </div>
                         </div>
 
+                        {/* Combined Revenue & Net */}
                         <div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ingresos</p>
-                          <span className="font-bold text-slate-900 bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100 text-sm">
-                            ${close.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Sin IVA</p>
-                          <span className="font-bold text-slate-700 text-xs">
-                            ${(close.totalRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                          </span>
+                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ingresos</p>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100 text-sm w-fit">
+                              ${close.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium mt-0.5">
+                              Neto: ${(close.totalRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="hidden md:block text-right">
@@ -421,7 +420,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                       </div>
 
                       {/* Chevron */}
-                      <div className={`text-slate-300 md:ml-2 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-blue-500' : 'group-hover:text-slate-400'}`}>
+                      <div className={`text-slate-300 md:ml-2 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-blue-500' : 'rotate-0 group-hover:text-slate-400'}`}>
                         <ChevronDown className="w-5 h-5" />
                       </div>
                     </div>
@@ -432,7 +431,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                           {/* BRAND STATS SUMMARY */}
                           <div className="p-3 bg-slate-50 border-b border-slate-200">
-                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Estadística por Marcas</h4>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Estadística por Marcas</h4>
                             <div className="flex flex-wrap gap-2">
                               {Object.entries(
                                 daySales.reduce((acc, s) => {
@@ -517,7 +516,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
 
                     <div
                       onClick={() => toggleMonthExpand(month.monthKey)}
-                      className="p-3 flex flex-col md:flex-row items-stretch md:items-center gap-4 cursor-pointer bg-gradient-to-r from-transparent to-transparent hover:from-indigo-50/30"
+                      className="p-4 flex flex-col md:flex-row items-stretch md:items-center gap-4 cursor-pointer bg-gradient-to-r from-transparent to-transparent hover:from-indigo-50/30"
                     >
                       {/* Month Badge */}
                       <div className="flex flex-row md:flex-col items-center justify-center md:w-16 md:h-16 bg-indigo-50/50 rounded-lg border border-indigo-100 text-indigo-700 shrink-0 gap-3 md:gap-0 p-2 md:p-0">
@@ -526,33 +525,32 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                       </div>
 
                       {/* Info Grid */}
-                      <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-y-2 gap-x-4 items-center">
+                      <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-y-2 gap-x-4 items-center">
                         <div className="col-span-2 md:col-span-1 leading-tight">
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Periodo</p>
+                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Periodo</p>
                           <p className="font-semibold text-slate-800 text-sm">{month.label}</p>
                           <p className="text-[10px] text-slate-400">{month.closings.length} cortes</p>
                         </div>
 
                         <div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ventas</p>
+                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ventas</p>
                           <div className="flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
                             <span className="font-bold text-slate-700 text-sm">{month.totalSales}</span>
                           </div>
                         </div>
 
+                        {/* Combined Revenue & Net */}
                         <div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ingresos</p>
-                          <span className="font-bold text-slate-900 bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100 text-sm">
-                            ${month.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Sin IVA</p>
-                          <span className="font-bold text-slate-700 text-xs">
-                            ${(month.totalRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                          </span>
+                          <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Ingresos</p>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100 text-sm w-fit">
+                              ${month.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium mt-0.5">
+                              Neto: ${(month.totalRevenue / 1.16).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="hidden md:block text-right">
@@ -567,7 +565,7 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                         </div>
                       </div>
 
-                      <div className={`w-8 h-8 flex items-center justify-center rounded-full text-slate-300 md:ml-2 transition-transform duration-200 origin-center ${isExpanded ? 'rotate-180 text-indigo-600 bg-indigo-100' : 'group-hover:text-slate-400'}`}>
+                      <div className={`w-8 h-8 flex items-center justify-center rounded-full text-slate-300 md:ml-2 transition-transform duration-200 origin-center ${isExpanded ? 'rotate-180 text-indigo-600 bg-indigo-100' : 'rotate-0 group-hover:text-slate-400'}`}>
                         <ChevronDown className="w-5 h-5" />
                       </div>
                     </div>
