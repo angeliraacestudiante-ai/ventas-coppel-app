@@ -83,6 +83,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
   const [ticketImage, setTicketImage] = useState<string | null>(initialData?.ticketImage || null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showFullImage, setShowFullImage] = useState(false); // New state for modal
+  const [customerSuggestions, setCustomerSuggestions] = useState<string[]>([]); // Autocomplete state
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -124,6 +125,29 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
       return () => clearTimeout(timeoutId);
     }
   }, [commonData, items, ticketImage, initialData]);
+
+  // --- AUTOCOMPLETE SUGGESTIONS ---
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      try {
+        const { data } = await supabase
+          .from('sales')
+          .select('customer_name')
+          .order('date', { ascending: false })
+          .limit(100);
+
+        if (data) {
+          const names = data.map(d => d.customer_name).filter(Boolean);
+          const uniqueNames = Array.from(new Set(names)).sort();
+          setCustomerSuggestions(uniqueNames);
+        }
+      } catch (err) {
+        console.error("Error fetching suggestions:", err);
+      }
+    };
+
+    fetchSuggestions();
+  }, []);
   // -------------------------
 
   const calculateTotal = () => {
@@ -469,6 +493,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
                 Nombre del Cliente <span className="text-red-500">*</span>
               </label>
               <input
+                list="customer-suggestions"
                 type="text"
                 name="customerName"
                 value={commonData.customerName}
@@ -476,7 +501,13 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900 uppercase placeholder:normal-case"
                 placeholder="Nombre completo"
                 required
+                autoComplete="off"
               />
+              <datalist id="customer-suggestions">
+                {customerSuggestions.map((name, i) => (
+                  <option key={i} value={name} />
+                ))}
+              </datalist>
             </div>
 
             <div className="space-y-1 md:col-span-2">
