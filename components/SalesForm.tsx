@@ -249,7 +249,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
           setTicketImage(compressedBase64);
 
           // Trigger AI Analysis
-          handleAnalyzeTicket(compressedBase64);
+          // handleAnalyzeTicket(compressedBase64); // DISABLED: User wants manual trigger only
         };
       };
     }
