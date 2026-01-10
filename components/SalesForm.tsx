@@ -623,7 +623,10 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
 
         {/* SECTION 3: TICKET IMAGE */}
         <div className="space-y-2 pt-4 border-t border-slate-100">
-          <label className="block text-sm font-medium text-slate-700">Foto del Ticket (Opcional)</label>
+          <label className="block text-sm font-medium text-slate-700 flex justify-between items-center">
+            <span>Foto del Ticket <span className="text-blue-600 font-bold">(Autocompletado con IA)</span></span>
+            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100 uppercase tracking-wider font-bold">Recomendado</span>
+          </label>
           <div className="flex flex-col md:flex-row items-start gap-4">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-4">
