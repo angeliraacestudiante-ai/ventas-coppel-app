@@ -276,11 +276,14 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
             price: item.price !== undefined ? item.price.toString() : '',
             error: undefined
           })));
+          alert("✅ ¡Datos extraídos con éxito!\n\nVerifica que la información sea correcta antes de guardar.");
+        } else {
+          alert("⚠️ La IA leyó el ticket pero no encontró equipos móviles claros.\n\nVerifica la foto o llena los datos manualmente.");
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error analyzing ticket:", error);
-      // Optional: alert("No se pudo analizar el ticket automáticamente.");
+      alert(`⚠️ No se pudo analizar el ticket.\n\nDetalle: ${error.message || "Error desconocido"}`);
     } finally {
       setIsAnalyzing(false);
     }
