@@ -76,77 +76,102 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     for (const modelName of candidateModels) {
       if (keyFailed) break; // Si la llave falló con error crítico, saltar modelos
 
-      try {
-        console.log(`  ➡️ Modelo: ${modelName}`);
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: SchemaType.OBJECT,
-              properties: {
-                invoiceNumber: { type: SchemaType.STRING },
-                price: { type: SchemaType.NUMBER },
-                date: { type: SchemaType.STRING },
-                customerName: { type: SchemaType.STRING },
-                items: {
-                  type: SchemaType.ARRAY,
+      const MAX_RETRIES = 5;
+      const BASE_WAIT_SECONDS = 10; // Aumentado a 10s para mayor seguridad.
+
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          console.log(`  ➡️ Modelo: ${modelName} (Intento ${attempt + 1}/${MAX_RETRIES})`);
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: SchemaType.OBJECT,
+                properties: {
+                  invoiceNumber: { type: SchemaType.STRING },
+                  price: { type: SchemaType.NUMBER },
+                  date: { type: SchemaType.STRING },
+                  customerName: { type: SchemaType.STRING },
                   items: {
-                    type: SchemaType.OBJECT,
-                    properties: {
-                      brand: { type: SchemaType.STRING },
-                      price: { type: SchemaType.NUMBER }
+                    type: SchemaType.ARRAY,
+                    items: {
+                      type: SchemaType.OBJECT,
+                      properties: {
+                        brand: { type: SchemaType.STRING },
+                        price: { type: SchemaType.NUMBER }
+                      }
                     }
                   }
                 }
               }
             }
+          });
+
+          const result = await model.generateContent([prompt, imagePart]);
+          const response = await result.response;
+          const text = response.text();
+
+          if (text) {
+            const data = JSON.parse(text);
+            console.log(`✅ ÉXITO con Key #${keyIndex + 1} y modelo ${modelName}`, data);
+            return {
+              invoiceNumber: data.invoiceNumber,
+              price: data.price,
+              date: data.date,
+              items: data.items?.map((item: any) => {
+                let b = Brand.OTRO;
+                if (Object.values(Brand).includes(item.brand as Brand)) b = item.brand as Brand;
+                return { brand: b, price: item.price };
+              }),
+              customerName: data.customerName
+            };
           }
-        });
+          // Si llegamos aquí con éxito, salimos del bucle de intentos (return arriba ya lo hizo)
 
-        const result = await model.generateContent([prompt, imagePart]);
-        const response = await result.response;
-        const text = response.text();
+        } catch (error: any) {
+          const msg = (error.message || "Unknown error").toString();
 
-        if (text) {
-          const data = JSON.parse(text);
-          console.log(`✅ ÉXITO con Key #${keyIndex + 1} y modelo ${modelName}`, data);
-          return {
-            invoiceNumber: data.invoiceNumber,
-            price: data.price,
-            date: data.date,
-            items: data.items?.map((item: any) => {
-              let b = Brand.OTRO;
-              if (Object.values(Brand).includes(item.brand as Brand)) b = item.brand as Brand;
-              return { brand: b, price: item.price };
-            }),
-            customerName: data.customerName
-          };
-        }
-      } catch (error: any) {
-        console.warn(`  ⚠️ Falló ${modelName} con Key #${keyIndex + 1}:`, error.message);
-        lastError = error;
+          // Lógica de Reintento para 429 (Too Many Requests) o ResourceExhausted
+          if (msg.includes("429") || msg.includes("ResourceExhausted") || msg.includes("quota")) {
+            console.warn(`  ⚠️ Cuota excedida (429) en ${modelName} con Key #${keyIndex + 1}.`);
 
-        const msg = error.message || "Unknown error";
+            if (attempt < MAX_RETRIES - 1) {
+              // Backoff Exponencial
+              const waitTime = BASE_WAIT_SECONDS * (Math.pow(2, attempt)) * 1000; // 10s, 20s, 40s...
+              console.log(`  ⏳ Esperando ${waitTime / 1000}s antes de reintentar...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              continue; // Reintentar mismo modelo, misma key
+            } else {
+              console.error("  ❌ Se acabaron los intentos para esta configuración.");
+              attemptLogs.push(`Key #${keyIndex + 1} [${modelName}]: ⏳ Agotado tras ${MAX_RETRIES} reintentos (429)`);
 
-        // Si es 429, la llave está quemada
-        if (msg.includes("429")) {
-          attemptLogs.push(`Key #${keyIndex + 1}: ⏳ Cuota (429)`);
-          keyFailed = true; // Marcar llave como fallida
-          break; // Siguiente llave
-        }
+              // Importante: No marcar keyFailed=true inmediatamente si solo falló este modelo.
+              // Pero si es cuota global de la key, fallarán todos.
+              // Asumiremos que es la key 
+              keyFailed = true;
+              break; // Salir del bucle de intentos 
+            }
+          }
 
-        // Si es API Key inválida
-        if (msg.includes("API key")) {
-          attemptLogs.push(`Key #${keyIndex + 1}: ❌ Key Inválida`);
-          keyFailed = true;
-          break; // Siguiente llave
-        }
+          console.warn(`  ⚠️ Falló ${modelName} con Key #${keyIndex + 1}:`, error.message);
+          lastError = error;
 
-        // Otros errores (ej. modelo no encontrado), probamos siguiente modelo...
-        // Si fue el último modelo y falló:
-        if (modelName === candidateModels[candidateModels.length - 1]) {
-          attemptLogs.push(`Key #${keyIndex + 1}: ⚠️ Error técnico (${msg.slice(0, 20)}...)`);
+          // Si es API Key inválida
+          if (msg.includes("API key")) {
+            attemptLogs.push(`Key #${keyIndex + 1}: ❌ Key Inválida`);
+            keyFailed = true;
+            break; // Salir del bucle de intentos y cambiar llave
+          }
+
+          // Otros errores (ej. modelo no encontrado o error interno de Google)
+          // No hacemos retries, probamos el siguiente modelo
+          if (modelName === candidateModels[candidateModels.length - 1] && attempt === MAX_RETRIES - 1) {
+            attemptLogs.push(`Key #${keyIndex + 1}: ⚠️ Error técnico (${msg.slice(0, 20)}...)`);
+          }
+
+          // Si es un error distinto a 429, salimos del retry loop y dejamos que el loop de modelos continúe
+          break;
         }
       }
     }
