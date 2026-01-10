@@ -650,11 +650,19 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
 
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2"
+                    onClick={() => {
+                      if (ticketImage) {
+                        handleAnalyzeTicket(ticketImage);
+                      } else {
+                        alert("📸 Primero debes tomar una foto del ticket para poder escanearlo.");
+                        // Optional: fileInputRef.current?.click(); // We don't do this to strictly follow "No abra la cámara"
+                      }
+                    }}
+                    disabled={isAnalyzing}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Wand2 className="w-4 h-4 text-yellow-300" />
-                    Autocompletar
+                    <Wand2 className={`w-4 h-4 text-yellow-300 ${isAnalyzing ? 'animate-spin' : ''}`} />
+                    {isAnalyzing ? 'Analizando...' : 'Escanear / Autocompletar'}
                   </button>
                   {ticketImage && (ticketImage.includes('google.com') || ticketImage.includes('drive.google')) && (
                     <p className="text-[10px] text-slate-400 max-w-[150px] leading-tight">
