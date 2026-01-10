@@ -442,27 +442,7 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
       <form onSubmit={handleSubmit} className="space-y-8">
 
         {/* SECTION 1: COMMON DATA */}
-        <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 relative overflow-hidden">
-          {/* AI SCAN BANNER */}
-          {!initialData && (
-            <div className="mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-4 text-white flex items-center justify-between shadow-lg shadow-blue-200">
-              <div>
-                <div className="font-bold text-lg flex items-center gap-2">
-                  <Wand2 className="w-5 h-5 text-yellow-300" />
-                  Autocompletar con Ticket
-                </div>
-                <p className="text-xs text-blue-100 opacity-90">Sube una foto y la IA llenará el formulario</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="bg-white text-blue-600 hover:bg-blue-50 font-bold text-sm px-4 py-2 rounded-lg shadow-sm transition-colors"
-              >
-                Escanear Ahora
-              </button>
-            </div>
-          )}
-
+        <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
             <Smartphone className="w-4 h-4" />
             Datos Generales del Ticket
@@ -666,6 +646,15 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-bold transition-colors border border-slate-200"
                   >
                     {ticketImage ? 'Cambiar Foto' : 'Tomar Foto'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2"
+                  >
+                    <Wand2 className="w-4 h-4 text-yellow-300" />
+                    Autocompletar
                   </button>
                   {ticketImage && (ticketImage.includes('google.com') || ticketImage.includes('drive.google')) && (
                     <p className="text-[10px] text-slate-400 max-w-[150px] leading-tight">
