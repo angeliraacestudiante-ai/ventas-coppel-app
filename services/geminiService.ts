@@ -76,8 +76,8 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     for (const modelName of candidateModels) {
       if (keyFailed) break; // Si la llave falló con error crítico, saltar modelos
 
-      const MAX_RETRIES = 5;
-      const BASE_WAIT_SECONDS = 10; // Aumentado a 10s para mayor seguridad.
+      const MAX_RETRIES = 2; // Reducido de 5 a 2 para velocidad
+      const BASE_WAIT_SECONDS = 2; // Reducido de 10s a 2s para no hacer esperar al usuario
 
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
