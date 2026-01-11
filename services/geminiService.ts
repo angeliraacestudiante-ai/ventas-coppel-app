@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { TicketAnalysisResult, Brand } from "../types";
+import { analyzeTicketWithGroq } from "./groqService";
 
 export const analyzeTicketImage = async (base64Image: string): Promise<TicketAnalysisResult> => {
   // 1. Obtener todas las claves disponibles
@@ -26,7 +27,8 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
 
   const candidateModels = [
     "gemini-1.5-flash", // PRIORIDAD 1: El más rápido y con mayor cuota (15 RPM)
-    "gemini-1.5-pro"    // PRIORIDAD 2: El más inteligente (Backup si Flash falla)
+    "gemini-1.5-pro",   // PRIORIDAD 2: El más inteligente
+    "gemini-pro"        // PRIORIDAD 3: El clásico (Legacy) por si los 1.5 dan 404
   ];
 
   let lastError: any = null;
@@ -184,7 +186,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   console.warn("⚠️ Todos los intentos de Gemini fallaron. Activando protocolo de respaldo (GROQ)...");
 
   try {
-    const groqResult = await import('./groqService').then(m => m.analyzeTicketWithGroq(base64Image));
+    const groqResult = await analyzeTicketWithGroq(base64Image);
     if (groqResult) {
       console.log("🏆 RESCATADO POR GROQ!");
       return groqResult;
