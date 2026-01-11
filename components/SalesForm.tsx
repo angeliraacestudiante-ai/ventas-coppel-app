@@ -276,9 +276,10 @@ const SalesForm: React.FC<SalesFormProps> = ({ onAddSale, onUpdateSale, initialD
             price: item.price !== undefined ? item.price.toString() : '',
             error: undefined
           })));
-          alert("✅ ¡Datos extraídos con éxito!\n\nVerifica que la información sea correcta antes de guardar.");
+          // alert("✅ ¡Datos extraídos con éxito!\n\nVerifica que la información sea correcta antes de guardar."); // REMOVED
         } else {
-          alert("⚠️ La IA leyó el ticket pero no encontró equipos móviles claros.\n\nVerifica la foto o llena los datos manualmente.");
+          console.warn("La IA leyó el ticket pero no encontró equipos móviles claros.");
+          // alert("⚠️ La IA leyó el ticket pero no encontró equipos móviles claros.\n\nVerifica la foto o llena los datos manualmente."); // REMOVED
         }
       }
     } catch (error: any) {

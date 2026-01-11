@@ -33,24 +33,30 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
 
   const prompt = `You are an expert data extractor for Coppel store sales tickets. Analyze this image and extract the following in JSON format:
 
-  - invoiceNumber: The unique sales folio. Look for labels like "Factura No.", "Folio", "Docto", or "Ticket".
-    * INSTRUCTION: specifically look for the pattern "1053 [DIGITS]" (e.g., "1053 801190" or "1053-801190"). Extract ONLY the unique suffix (e.g., "801190"). Ignore the "1053" part. Return strict numeric digits only.
-  
-  - date: The purchase date (YYYY-MM-DD). Look for "Fecha".
-  - customerName: The customer's name. Look for "Cliente", "Nombre", or handwriting. Return formatted as "Title Case".
+  - invoiceNumber: The unique sales folio. 
+    * INSTRUCTION: Look for "Factura No.", "Folio", "Docto", "Ticket" or "Caja". 
+    * PATTERN RULE: If you see "1053" followed by digits (e.g., "1053 801190" or "1053-801190"), extract ONLY the last part (e.g. "801190"). Return ONLY the distinct suffix digits.
 
-  - items: Detect EACH mobile phone sold in the ticket.
-    * INSTRUCTION: Scan the ENTIRE ticket from top, to middle, to bottom. Do not stop after the first item.
-    * Look for SKU numbers (6 digit codes like "222664") to identify distinct items.
-    * For each phone found:
-      1. Identify the Brand (SAMSUNG, APPLE, OPPO, ETC).
-      2. Identify the BASE PRICE to the right (e.g., 9499.00).
-      3. Look strictly BELOW that line for "DESCTO P/PAQUETE" or "DESCTO PROMOCION" and a negative amount (e.g. -2662.00).
-      4. SUBTRACT the discount from the base price. (e.g. 9499 - 2662 = 6837).
-      5. Return the calculated final price.
-      * CRITICAL: Do NOT confuse phone numbers (10 digits starting often with 6, 55, 33 etc) with prices. Prices usually have decimals (.00). Phone numbers do not.
-      * ERROR PREVENTION: IGNORE items that are NOT mobile phones. Do NOT include "CHIP", "RECARGA", "MICA", "FUNDA", "GARANTIA", or "SEGURO". Only include actual devices.
-      * If multiple phones exist, return ALL of them in the list.`;
+  - date: The purchase date (YYYY-MM-DD). Look for "Fecha".
+  
+  - customerName: The customer's name.
+    * INSTRUCTION: Look specifically for the label "CLIENTE:" or "NOMBRE:".
+    * The name is usually printed in UPPERCASE immediately after or below this label.
+    * Return formatted as "Title Case".
+
+  - items: Detect EVERY SINGLE mobile phone sold in the ticket.
+    * CRITICAL: Tickets often contain MULTIPLE phones (e.g. 2 Samsung A54 and 1 iPhone). You MUST extract ALL of them as separate items.
+    * SCANNING: Scan the image from top to bottom. Do NOT stop after the first match.
+    * FILTERING: STRICTLY IGNORE chips, sim cards, "recargas", warranties ("garantia", "seguro"), cases ("funda"), or unknown SKUs. ONLY extract actual mobile devices.
+    
+    * PRICING ALGORITHM for each phone:
+      1. Find the Base Price on the right.
+      2. Check the lines IMMEDIATELY BELOW for a discount (e.g. "DESCTO P/PAQUETE", "AHORRO", "PROMOCION").
+      3. If a discount exists, SUBTRACT it from the Base Price to get the Final Price.
+      4. If no discount exists below the phone, use the Base Price.
+      5. Return the calculated numeric price.
+      
+    * BRANDS: Identify the brand (Samsung, Apple, Motorola, Xiaomi, Oppo, etc.) for each item found.`;
 
   const imagePart = {
     inlineData: {
