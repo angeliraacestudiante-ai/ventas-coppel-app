@@ -25,12 +25,8 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   console.log(`[DEBUG] Se encontraron ${apiKeys.length} claves API para rotación.`);
 
   const candidateModels = [
-    "gemini-1.5-pro",
-    "gemini-1.5-flash",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-001",
-    "gemini-2.0-flash-exp",
-    "gemini-2.5-flash"
+    "gemini-1.5-flash", // PRIORIDAD 1: El más rápido y con mayor cuota (15 RPM)
+    "gemini-1.5-pro"    // PRIORIDAD 2: El más inteligente (Backup si Flash falla)
   ];
 
   let lastError: any = null;
