@@ -146,11 +146,18 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
               console.error("  ❌ Se acabaron los intentos para esta configuración.");
               attemptLogs.push(`Key #${keyIndex + 1} [${modelName}]: ⏳ Agotado tras ${MAX_RETRIES} reintentos (429)`);
 
-              // Importante: No marcar keyFailed=true inmediatamente si solo falló este modelo.
-              // Pero si es cuota global de la key, fallarán todos.
-              // Asumiremos que es la key 
-              keyFailed = true;
-              break; // Salir del bucle de intentos 
+              // Importante: Si falla un modelo con 429, INTENTAR EL SIGUIENTE MODELO de la lista.
+              // No marcamos keyFailed = true todavía, a menos que ya estemos en el modelo más básico.
+
+              // Si falla el "flash" estándar, es probable que la cuota global esté muerta.
+              if (modelName === "gemini-1.5-flash") {
+                console.error("  ❌ Falló el modelo base (Flash). Probablemente cuota agotada globalmente.");
+                keyFailed = true;
+              } else {
+                console.warn("  ⚠️ Falló este modelo. Intentando con el siguiente de la lista...");
+              }
+
+              break; // Salir del bucle de intentos y pasar al siguiente modelo 
             }
           }
 
