@@ -5,7 +5,7 @@ export const analyzeTicketWithGroq = async (base64Image: string): Promise<Ticket
 
     if (!apiKey) {
         console.warn("⚠️ No se encontró VITE_GROQ_API_KEY. Saltando respaldo de Groq.");
-        throw new Error("Falta configuración de Groq.");
+        throw new Error("Falta la API Key de Groq (VITE_GROQ_API_KEY). Agrégala en las Environment Variables de Vercel/Netlify.");
     }
 
     console.log("🚀 Iniciando respaldo con GROQ (Llama 3.2 Vision)...");
@@ -55,7 +55,7 @@ export const analyzeTicketWithGroq = async (base64Image: string): Promise<Ticket
                         ]
                     }
                 ],
-                model: "llama-3.2-11b-vision-preview", // UPDATED: 90b-vision-preview was deprecated
+                model: "llama-3.2-90b-vision-preview", // UPDATED: 11b-vision-preview was decommissioned
                 temperature: 0,
                 response_format: { type: "json_object" }
             })

@@ -15,20 +15,17 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   // NOTA: Se ha deshabilitado la rotación de claves adicionales a petición del usuario.
   // Solo se usará la clave principal.
 
-  // DEBUG TEMPORAL: Ver qué está pasando en el celular
-  // alert(`DEBUG: El sistema detectó ${apiKeys.length} llaves API.`);
-
   if (apiKeys.length === 0) {
-    console.error("❌ ERROR CRÍTICO: No se encontró la API Key.");
-    throw new Error("Falta la API Key de Gemini. Configura VITE_GEMINI_API_KEY en tu archivo .env.");
+    console.warn("⚠️ ADVERTENCIA: No se encontró API Key de Gemini. Se intentará usar el respaldo (Groq).");
+    // No lanzamos error aquí para permitir que intente con Groq
+  } else {
+    console.log(`[DEBUG] Se encontraron ${apiKeys.length} claves API de Gemini.`);
   }
 
-  console.log(`[DEBUG] Se encontraron ${apiKeys.length} claves API para rotación.`);
-
   const candidateModels = [
-    "gemini-1.5-flash", // PRIORIDAD 1: El más rápido y con mayor cuota (15 RPM)
-    "gemini-1.5-pro",   // PRIORIDAD 2: El más inteligente
-    "gemini-pro"        // PRIORIDAD 3: El clásico (Legacy) por si los 1.5 dan 404
+    "gemini-2.0-flash", // PRIORIDAD 1: Nuevo modelo ultra rápido (Flash 2.0)
+    "gemini-1.5-flash", // PRIORIDAD 2: El estándar anterior
+    "gemini-1.5-pro",   // PRIORIDAD 3: Alta inteligencia
   ];
 
   let lastError: any = null;
@@ -200,6 +197,6 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   console.error("❌ Muerte total del sistema de IA.", lastError);
 
   // Mostrar reporte detallado al usuario
-  throw new Error(`FALLO TOTAL (Gemini + Groq):\n${attemptLogs.join('\n')}\n\nIntenta con otra imagen o revisa Vercel.`);
+  throw new Error(`FALLO TOTAL (Gemini + Groq):\n\nPosible causa: Faltan las llaves API (API KEYS) en la configuración del servidor.\n\nSi la app está en línea, revisa las "Environment Variables" en Vercel/Netlify.\n\nDetalles técnicos:\n${attemptLogs.join('\n')}`);
 };
 
