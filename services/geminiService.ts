@@ -184,10 +184,24 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     }
   }
 
-  // Si llegamos aquí, fallaron todas
-  console.error("❌ Todas las claves y modelos fallaron.", lastError);
+  // --- FALLBACK: INTENTAR CON GROQ (Llama 3.2 Vision) --
+  console.warn("⚠️ Todos los intentos de Gemini fallaron. Activando protocolo de respaldo (GROQ)...");
+
+  try {
+    const groqResult = await import('./groqService').then(m => m.analyzeTicketWithGroq(base64Image));
+    if (groqResult) {
+      console.log("🏆 RESCATADO POR GROQ!");
+      return groqResult;
+    }
+  } catch (groqError: any) {
+    console.error("❌ Falló también el respaldo de Groq:", groqError.message);
+    attemptLogs.push(`GROQ Backup: ❌ Error (${groqError.message})`);
+  }
+
+  // Si llegamos aquí, fallaron todas (Gemini + Groq)
+  console.error("❌ Muerte total del sistema de IA.", lastError);
 
   // Mostrar reporte detallado al usuario
-  throw new Error(`FALLO TOTAL:\n${attemptLogs.join('\n')}\n\nIntenta con otra imagen o revisa Vercel.`);
+  throw new Error(`FALLO TOTAL (Gemini + Groq):\n${attemptLogs.join('\n')}\n\nIntenta con otra imagen o revisa Vercel.`);
 };
 
