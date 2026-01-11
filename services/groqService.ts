@@ -55,7 +55,7 @@ export const analyzeTicketWithGroq = async (base64Image: string): Promise<Ticket
                         ]
                     }
                 ],
-                model: "llama-3.2-90b-vision-preview",
+                model: "llama-3.2-11b-vision-preview", // UPDATED: 90b-vision-preview was deprecated
                 temperature: 0,
                 response_format: { type: "json_object" }
             })
