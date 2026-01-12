@@ -40,21 +40,25 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   - date: The purchase date (YYYY-MM-DD). Look for "Fecha".
   
   - customerName: The customer's name.
-    * INSTRUCTION: Look specifically for the label "CLIENTE:" or "NOMBRE:".
+    * INSTRUCTION: Look specifically for the label "CLIENTE:" or "NOMBRE:". 
     * The name is usually printed in UPPERCASE immediately after or below this label.
-    * Return formatted as "Title Case".
+    * Do NOT return "Coppel" or "Publico en General" unless no other name exists.
+    * Return formatted as "Title Case" (e.g. "Juan Perez").
 
   - items: Detect EVERY SINGLE mobile phone sold in the ticket.
-    * CRITICAL: Tickets often contain MULTIPLE phones (e.g. 2 Samsung A54 and 1 iPhone). You MUST extract ALL of them as separate items.
-    * SCANNING: Scan the image from top to bottom. Do NOT stop after the first match.
-    * FILTERING: STRICTLY IGNORE chips, sim cards, "recargas", warranties ("garantia", "seguro"), cases ("funda"), or unknown SKUs. ONLY extract actual mobile devices.
-    
+    * CRITICAL: Tickets often contain MULTIPLE phones. Extract ALL of them.
+    * FILTERING RULES (Strict):
+      1. IGNORE items named "CHIP", "SIM", "RECARGA", "MICA", "FUNDA".
+      2. IGNORE any item with a Base Price of **1.00** or less. These are usually promo chips.
+      3. Only extract actual mobile devices.
+
     * PRICING ALGORITHM for each phone:
       1. Find the Base Price on the right.
       2. Check the lines IMMEDIATELY BELOW for a discount (e.g. "DESCTO P/PAQUETE", "AHORRO", "PROMOCION").
-      3. If a discount exists, SUBTRACT it from the Base Price to get the Final Price.
-      4. If no discount exists below the phone, use the Base Price.
-      5. Return the calculated numeric price.
+      3. CRITICAL EXCEPTION: If the discount found is exactly **-1.00**, IGNORE IT. This indicates a "Free Chip" promo and does NOT apply to the phone price.
+      4. Only subtract discounts that are significant (e.g. > 10 pesos).
+      5. Subtract the valid discount from the Base Price to get the Final Price.
+      6. Return the calculated numeric price.
       
     * BRANDS: Identify the brand (Samsung, Apple, Motorola, Xiaomi, Oppo, etc.) for each item found.`;
 
