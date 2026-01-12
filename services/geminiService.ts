@@ -40,10 +40,10 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   - date: The purchase date (YYYY-MM-DD). Look for "Fecha".
   
   - customerName: The customer's name.
-    * INSTRUCTION: Look specifically for the label "CLIENTE:" or "NOMBRE:". 
-    * CLEANUP: Remove any label text like "Nombre:", "Cliente:", etc. Return ONLY the actual name.
-    * The name is usually printed in UPPERCASE immediately after or below this label.
-    * Do NOT return "Coppel" or "Publico en General" unless no other name exists.
+    * INSTRUCTION: Search for the specific line starting with "Nombre:".
+    * The name is the text immediately following "Nombre:".
+    * Example: If the line says "Nombre: MA DE JESUS BARRERA", extract "MA DE JESUS BARRERA".
+    * Ignore "No. de Cliente".
     * Return formatted as "Title Case" (e.g. "Juan Perez").
 
   - items: Detect EVERY SINGLE mobile phone sold in the ticket.
@@ -137,7 +137,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
                 }
                 return { brand: b, price: item.price };
               }),
-              customerName: data.customerName ? data.customerName.replace(/^(nombre|cliente)[:.]?\s*/i, '').trim() : data.customerName
+              customerName: (data.customerName || data.customer_name || data.name || '').replace(/^(nombre|cliente|nom|cli)[:.]?\s*/i, '').trim()
             };
           }
           // Si llegamos aquí con éxito, salimos del bucle de intentos (return arriba ya lo hizo)
