@@ -137,7 +137,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
                 }
                 return { brand: b, price: item.price };
               }),
-              customerName: data.customerName
+              customerName: data.customerName ? data.customerName.replace(/^(nombre|cliente)[:.]?\s*/i, '').trim() : data.customerName
             };
           }
           // Si llegamos aquí con éxito, salimos del bucle de intentos (return arriba ya lo hizo)
