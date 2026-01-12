@@ -63,22 +63,7 @@ const App: React.FC = () => {
   const [copiedSql, setCopiedSql] = useState(false);
   const [saleToEdit, setSaleToEdit] = useState<Sale | null>(null);
 
-  // --- ONE-TIME NOTIFICATION SYSTEM ---
-  const [showAiNotification, setShowAiNotification] = useState(false);
 
-  useEffect(() => {
-    // Check if user has already seen the notification
-    const hasSeen = localStorage.getItem('seen_ai_fix_notification__v1');
-    if (!hasSeen) {
-      setShowAiNotification(true);
-    }
-  }, []);
-
-  const dismissAiNotification = () => {
-    setShowAiNotification(false);
-    localStorage.setItem('seen_ai_fix_notification__v1', 'true');
-  };
-  // ------------------------------------
 
   // SQL Script Update: Adds Profiles table and stricter policies
   const REQUIRED_SQL = `
@@ -875,36 +860,6 @@ create policy "Authenticated users can do everything on warranties" on public.wa
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
 
-      {/* --- AI NOTIFICATION POPUP --- */}
-      {showAiNotification && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white text-center">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-md">
-                <Wand2 className="w-8 h-8 text-yellow-300" />
-              </div>
-              <h3 className="text-xl font-bold">¡El Autocompletado ya funciona! 🚀</h3>
-            </div>
-            <div className="p-6 space-y-4">
-              <p className="text-slate-600 text-center leading-relaxed">
-                Hemos reparado y mejorado el "Botón Mágico". Ahora es más rápido, preciso y detecta múltiples equipos automáticamente.
-              </p>
-              <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                <p className="text-xs text-blue-800 font-medium text-center">
-                  💡 Tip: Recuerda que ahora puedes escanear tickets con varios celulares de diferentes marcas a la vez.
-                </p>
-              </div>
-              <button
-                onClick={dismissAiNotification}
-                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors shadow-lg shadow-slate-200"
-              >
-                ¡Entendido, a vender!
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* --------------------------- */}
 
       {/* Mobile Header */}
       <div className="md:hidden bg-slate-900 text-white p-4 flex items-center justify-between shadow-md sticky top-0 z-20">

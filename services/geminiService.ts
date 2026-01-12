@@ -41,6 +41,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   
   - customerName: The customer's name.
     * INSTRUCTION: Look specifically for the label "CLIENTE:" or "NOMBRE:". 
+    * CLEANUP: Remove any label text like "Nombre:", "Cliente:", etc. Return ONLY the actual name.
     * The name is usually printed in UPPERCASE immediately after or below this label.
     * Do NOT return "Coppel" or "Publico en General" unless no other name exists.
     * Return formatted as "Title Case" (e.g. "Juan Perez").
@@ -60,7 +61,10 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
       5. Subtract the valid discount from the Base Price to get the Final Price.
       6. Return the calculated numeric price.
       
-    * BRANDS: Identify the brand (Samsung, Apple, Motorola, Xiaomi, Oppo, etc.) for each item found.`;
+    * BRANDS: Identify the brand for each item.
+      * LOCATION: The brand is often specified on the line BELOW the description, after "TELCEL" or "CEL".
+      * VALID VALUES: Return one of these exact strings if found: "SAMSUNG", "APPLE", "OPPO", "ZTE", "MOTOROLA", "REALME", "VIVO", "XIAOMI", "HONOR", "HUAWEI", "SENWA", "NUBIA".
+      * If the brand is not in this list, return "OTRO".`;
 
   const imagePart = {
     inlineData: {
@@ -126,7 +130,11 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
               date: data.date,
               items: data.items?.map((item: any) => {
                 let b = Brand.OTRO;
-                if (Object.values(Brand).includes(item.brand as Brand)) b = item.brand as Brand;
+                const normalizedBrand = item.brand ? item.brand.toString().toUpperCase().trim() : '';
+
+                if (Object.values(Brand).includes(normalizedBrand as Brand)) {
+                  b = normalizedBrand as Brand;
+                }
                 return { brand: b, price: item.price };
               }),
               customerName: data.customerName
