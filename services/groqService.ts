@@ -1,6 +1,11 @@
+```typescript
 import { TicketAnalysisResult, Brand } from "../types";
 
-export const analyzeTicketWithGroq = async (base64Image: string): Promise<TicketAnalysisResult> => {
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+// Actualizado a modelo vigente (el anterior 90b fue retirado)
+const GROQ_MODEL = "llama-3.2-11b-vision-preview";
+
+export const analyzeTicketWithGroq = async (base64Image: string): Promise<TicketAnalysisResult | null> => {
     const apiKey = import.meta.env.VITE_GROQ_API_KEY;
 
     if (!apiKey) {
@@ -11,33 +16,33 @@ export const analyzeTicketWithGroq = async (base64Image: string): Promise<Ticket
     console.log("🚀 Iniciando respaldo con GROQ (Llama 3.2 Vision)...");
 
     // Asegurar formato data:image
-    const imageUrl = base64Image.startsWith('data:') ? base64Image : `data:image/jpeg;base64,${base64Image}`;
+    const imageUrl = base64Image.startsWith('data:') ? base64Image : `data: image / jpeg; base64, ${ base64Image } `;
 
     const prompt = `
-  You are an expert data extractor. Analyze this ticket image and extract the following in pure JSON format:
-  {
+  You are an expert data extractor.Analyze this ticket image and extract the following in pure JSON format:
+{
     "invoiceNumber": "The unique number (e.g., if '1053 801190', return '801190')",
-    "date": "YYYY-MM-DD",
-    "customerName": "Customer Name (Title Case)",
-    "items": [
-      {
-        "brand": "Brand Name (SAMSUNG, APPLE, MOTOROLA, XIAOMI, OPPO, ZTE, HONOR, HUAWEI, ALCATEL, OTRO)",
-        "price": 1234.56 (Numeric, calculated after subtracting discounts if any)
-      }
-    ]
-  }
+        "date": "YYYY-MM-DD",
+            "customerName": "Customer Name (Title Case)",
+                "items": [
+                    {
+                        "brand": "Brand Name (SAMSUNG, APPLE, MOTOROLA, XIAOMI, OPPO, ZTE, HONOR, HUAWEI, ALCATEL, OTRO)",
+                        "price": 1234.56(Numeric, calculated after subtracting discounts if any)
+                    }
+                ]
+}
   
   IMPORTANT RULES:
-  1. Only extract mobile phones. Ignore accessories (chips, cases).
+1. Only extract mobile phones.Ignore accessories(chips, cases).
   2. For the price: Look for the base price and subtract any "Descuento por paquete" or similar appearing immediately below it.
-  3. JSON ONLY. No markdown, no comments.
+  3. JSON ONLY.No markdown, no comments.
   `;
 
     try {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${apiKey}`,
+                "Authorization": `Bearer ${ apiKey } `,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
@@ -63,7 +68,7 @@ export const analyzeTicketWithGroq = async (base64Image: string): Promise<Ticket
 
         if (!response.ok) {
             const errAlert = await response.text();
-            throw new Error(`Groq API Error: ${response.status} - ${errAlert}`);
+            throw new Error(`Groq API Error: ${ response.status } - ${ errAlert } `);
         }
 
         const json = await response.json();

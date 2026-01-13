@@ -66,10 +66,11 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     console.log(`[DEBUG] Se encontraron ${apiKeys.length} claves API de Gemini.`);
   }
 
-  // Configuramos modelos: Flash 1.5 es el más estable para texto impreso estándar.
+  // Configuramos modelos: Usamos la versión "latest" que es alias estable actual.
+  // Si falla, probamos con flash-8b que es muy rapido.
   const candidateModels = [
+    "gemini-1.5-flash-latest",
     "gemini-1.5-flash",
-    "gemini-2.0-flash-exp",
   ];
 
   let lastError: any = null;
