@@ -67,9 +67,9 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   }
 
   const candidateModels = [
-    "gemini-2.0-flash", // PRIORIDAD 1: Nuevo modelo ultra rápido y económico
-    "gemini-1.5-flash", // PRIORIDAD 2: El estándar económico anterior
-    // "gemini-1.5-pro", // SE ELIMINA para ahorrar costos (el usuario reportó alto consumo)
+    "gemini-1.5-flash", // PRIORIDAD 1: Estándar estable y económico
+    "gemini-2.0-flash", // PRIORIDAD 2: Nueva versión rápida (Preview)
+    "gemini-1.5-pro",   // PRIORIDAD 3: Respaldo de alta calidad (Solo si fallan los anteriores)
   ];
 
   let lastError: any = null;
@@ -82,14 +82,15 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     * PATTERN RULE: If you see "1053" followed by digits (e.g., "1053 801190" or "1053-801190"), extract ONLY the last part (e.g. "801190"). Return ONLY the distinct suffix digits.
 
   - date: The purchase date.
-    * Return it EXACTLY as it appears on the ticket (e.g. "02-Jun-25"). Do not try to convert it format yet.
+    * Return the date EXACTLY as printed on the ticket. 
+    * Format usually looks like "02-Jun-25" or "02/06/2025".
+    * Do not convert it. Just extract the string found near "Fecha:".
 
   - customerName: The customer's full name.
-    * LOCATE the line starting with "Nombre:".
-    * EXTRACT the text following "Nombre:".
-    * EXAMPLE: "Nombre: JUAN PEREZ" -> Extract "JUAN PEREZ".
-    * IGNORE other lines looking like names (like address or city).
-    * Return just the string.
+    * FIND the line starting with "Nombre:".
+    * EXTRACT everything after the label "Nombre:".
+    * If "Nombre:" is not explicitly present, look for the name above "No. de Cliente".
+    * Example: "Nombre: JUAN PEREZ" -> Return "JUAN PEREZ".
 
   - items: Detect EVERY SINGLE mobile phone sold in the ticket.
     * CRITICAL: Tickets often contain MULTIPLE phones. Extract ALL of them.
@@ -172,11 +173,18 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
 
             // CLEAN DATA BEFORE RETURNING
             const cleanDate = parseSpanishDate(data.date);
-            const cleanName = (data.customerName || data.customer_name || data.name || '')
-              .replace(/[\r\n]+/g, ' ') // Remove newlines
-              .replace(/^.*(?:nombre|cliente|nom\.|cliente\.|nomb\s*:|cli\s*:|nombre\s*:).*?[:.]?\s+/i, '') // Aggressively remove "Nombre:" and anything before it
-              .replace(/\s*No\.\s*de\s*Cliente.*$/i, '')
-              .trim();
+
+            // Name Cleanup: Simpler and safer strategy
+            let rawName = (data.customerName || data.customer_name || data.name || '');
+            // Split by "Nombre:" case insensitive and take the second part if exists
+            const splitName = rawName.split(/nombre\s*[:.]/i);
+            if (splitName.length > 1) {
+              rawName = splitName[1]; // Take content after label
+            }
+            // Further clean up trailing noise like "No. de Cliente" or "Direccion"
+            rawName = rawName.replace(/No\.\s*de\s*Cliente.*$/i, '').trim();
+            // Remove any leading special chars
+            const cleanName = rawName.replace(/^[:.\-\s]+/, '').trim();
 
             return {
               invoiceNumber: data.invoiceNumber,
