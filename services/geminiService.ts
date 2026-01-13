@@ -173,8 +173,9 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
             // CLEAN DATA BEFORE RETURNING
             const cleanDate = parseSpanishDate(data.date);
             const cleanName = (data.customerName || data.customer_name || data.name || '')
-              .replace(/^(nombre|cliente|nom|cli)[:.]?\s*/i, '') // Remove prefix
-              .replace(/\s*No\.\s*de\s*Cliente.*$/i, '')        // Remove trailing "No. de Cliente..." noise if grabbed
+              .replace(/[\r\n]+/g, ' ') // Remove newlines
+              .replace(/^.*(?:nombre|cliente|nom\.|cliente\.|nomb\s*:|cli\s*:|nombre\s*:).*?[:.]?\s+/i, '') // Aggressively remove "Nombre:" and anything before it
+              .replace(/\s*No\.\s*de\s*Cliente.*$/i, '')
               .trim();
 
             return {
