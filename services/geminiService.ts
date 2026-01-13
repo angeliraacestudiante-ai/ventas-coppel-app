@@ -2,6 +2,50 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { TicketAnalysisResult, Brand } from "../types";
 import { analyzeTicketWithGroq } from "./groqService";
 
+// Helper to parse Coppel dates (DD-MMM-YY) like "02-Jun-25" to YYYY-MM-DD
+const parseSpanishDate = (dateStr: string | undefined): string | undefined => {
+  if (!dateStr) return undefined;
+
+  // If already YYYY-MM-DD, return it
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+
+  try {
+    // Try to handle "02-Jun-25" or "02-JUN-25"
+    const parts = dateStr.split(/[-/ ]/);
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const monthStr = parts[1].toLowerCase().substring(0, 3);
+      let year = parts[2];
+
+      // Handle year 25 -> 2025
+      if (year.length === 2) year = '20' + year;
+
+      const months: { [key: string]: string } = {
+        'ene': '01', 'jan': '01',
+        'feb': '02',
+        'mar': '03',
+        'abr': '04', 'apr': '04',
+        'may': '05',
+        'jun': '06',
+        'jul': '07',
+        'ago': '08', 'aug': '08',
+        'sep': '09',
+        'oct': '10',
+        'nov': '11',
+        'dic': '12', 'dec': '12'
+      };
+
+      const month = months[monthStr];
+      if (month && day && year) {
+        return `${year}-${month}-${day}`;
+      }
+    }
+  } catch (e) {
+    console.warn("Date parse error", e);
+  }
+  return dateStr; // Fallback to original if parse fails
+};
+
 export const analyzeTicketImage = async (base64Image: string): Promise<TicketAnalysisResult> => {
   // 1. Obtener todas las claves disponibles
   const apiKeys: string[] = [];
@@ -33,22 +77,19 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
 
   const prompt = `You are an expert data extractor for Coppel store sales tickets. Analyze this image and extract the following in JSON format:
 
-  - invoiceNumber: The unique sales folio. 
-    * INSTRUCTION: Look for "Factura No.", "Folio", "Docto", "Ticket" or "Caja". 
+  - invoiceNumber: The unique sales folio.
+    * INSTRUCTION: Look for "Factura No.", "Folio", "Docto", "Ticket" or "Caja".
     * PATTERN RULE: If you see "1053" followed by digits (e.g., "1053 801190" or "1053-801190"), extract ONLY the last part (e.g. "801190"). Return ONLY the distinct suffix digits.
 
-  - date: The purchase date in STRICT "YYYY-MM-DD" format.
-    * SOURCE FORMAT: The ticket uses "DD-MMM-YY" (e.g., "02-Jun-25").
-    * INSTRUCTION: Convert the Spanish month abbreviation to a number.
-    * MAPPING: Ene=01, Feb=02, Mar=03, Abr=04, May=05, Jun=06, Jul=07, Ago=08, Sep=09, Oct=10, Nov=11, Dic=12.
-    * Example: "02-Jun-25" -> "2025-06-02".
-  
-  - customerName: The customer's name.
-    * INSTRUCTION: Search for the specific line starting with "Nombre:".
-    * The name is the text immediately following "Nombre:".
-    * Example: If the line says "Nombre: MA DE JESUS BARRERA", extract "MA DE JESUS BARRERA".
-    * Ignore "No. de Cliente".
-    * Return formatted as "Title Case" (e.g. "Juan Perez").
+  - date: The purchase date.
+    * Return it EXACTLY as it appears on the ticket (e.g. "02-Jun-25"). Do not try to convert it format yet.
+
+  - customerName: The customer's full name.
+    * LOCATE the line starting with "Nombre:".
+    * EXTRACT the text following "Nombre:".
+    * EXAMPLE: "Nombre: JUAN PEREZ" -> Extract "JUAN PEREZ".
+    * IGNORE other lines looking like names (like address or city).
+    * Return just the string.
 
   - items: Detect EVERY SINGLE mobile phone sold in the ticket.
     * CRITICAL: Tickets often contain MULTIPLE phones. Extract ALL of them.
@@ -64,7 +105,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
       4. Only subtract discounts that are significant (e.g. > 10 pesos).
       5. Subtract the valid discount from the Base Price to get the Final Price.
       6. Return the calculated numeric price.
-      
+
     * BRANDS: Identify the brand for each item.
       * LOCATION: The brand is often specified on the line BELOW the description, after "TELCEL" or "CEL".
       * VALID VALUES: Return one of these exact strings if found: "SAMSUNG", "APPLE", "OPPO", "ZTE", "MOTOROLA", "REALME", "VIVO", "XIAOMI", "HONOR", "HUAWEI", "SENWA", "NUBIA".
@@ -128,10 +169,18 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
           if (text) {
             const data = JSON.parse(text);
             console.log(`✅ ÉXITO con Key #${keyIndex + 1} y modelo ${modelName}`, data);
+
+            // CLEAN DATA BEFORE RETURNING
+            const cleanDate = parseSpanishDate(data.date);
+            const cleanName = (data.customerName || data.customer_name || data.name || '')
+              .replace(/^(nombre|cliente|nom|cli)[:.]?\s*/i, '') // Remove prefix
+              .replace(/\s*No\.\s*de\s*Cliente.*$/i, '')        // Remove trailing "No. de Cliente..." noise if grabbed
+              .trim();
+
             return {
               invoiceNumber: data.invoiceNumber,
               price: data.price,
-              date: data.date,
+              date: cleanDate,
               items: data.items?.map((item: any) => {
                 let b = Brand.OTRO;
                 const normalizedBrand = item.brand ? item.brand.toString().toUpperCase().trim() : '';
@@ -141,7 +190,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
                 }
                 return { brand: b, price: item.price };
               }),
-              customerName: (data.customerName || data.customer_name || data.name || '').replace(/^(nombre|cliente|nom|cli)[:.]?\s*/i, '').trim()
+              customerName: cleanName
             };
           }
           // Si llegamos aquí con éxito, salimos del bucle de intentos (return arriba ya lo hizo)
