@@ -23,9 +23,9 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   }
 
   const candidateModels = [
-    "gemini-2.0-flash", // PRIORIDAD 1: Nuevo modelo ultra rápido (Flash 2.0)
-    "gemini-1.5-flash", // PRIORIDAD 2: El estándar anterior
-    "gemini-1.5-pro",   // PRIORIDAD 3: Alta inteligencia
+    "gemini-2.0-flash", // PRIORIDAD 1: Nuevo modelo ultra rápido y económico
+    "gemini-1.5-flash", // PRIORIDAD 2: El estándar económico anterior
+    // "gemini-1.5-pro", // SE ELIMINA para ahorrar costos (el usuario reportó alto consumo)
   ];
 
   let lastError: any = null;
@@ -37,7 +37,11 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     * INSTRUCTION: Look for "Factura No.", "Folio", "Docto", "Ticket" or "Caja". 
     * PATTERN RULE: If you see "1053" followed by digits (e.g., "1053 801190" or "1053-801190"), extract ONLY the last part (e.g. "801190"). Return ONLY the distinct suffix digits.
 
-  - date: The purchase date (YYYY-MM-DD). Look for "Fecha".
+  - date: The purchase date in STRICT "YYYY-MM-DD" format.
+    * SOURCE FORMAT: The ticket uses "DD-MMM-YY" (e.g., "02-Jun-25").
+    * INSTRUCTION: Convert the Spanish month abbreviation to a number.
+    * MAPPING: Ene=01, Feb=02, Mar=03, Abr=04, May=05, Jun=06, Jul=07, Ago=08, Sep=09, Oct=10, Nov=11, Dic=12.
+    * Example: "02-Jun-25" -> "2025-06-02".
   
   - customerName: The customer's name.
     * INSTRUCTION: Search for the specific line starting with "Nombre:".
