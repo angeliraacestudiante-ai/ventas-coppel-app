@@ -67,50 +67,43 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   }
 
   const candidateModels = [
-    "gemini-1.5-flash", // PRIORIDAD 1: Estándar estable y económico
-    "gemini-2.0-flash", // PRIORIDAD 2: Nueva versión rápida (Preview)
+    "gemini-1.5-flash",
+    "gemini-2.0-flash-exp",
     "gemini-1.5-pro",   // PRIORIDAD 3: Respaldo de alta calidad (Solo si fallan los anteriores)
   ];
 
   let lastError: any = null;
   const base64Data = base64Image.split(',')[1] || base64Image;
 
-  const prompt = `You are an expert data extractor for Coppel store sales tickets. Analyze this image and extract the following in JSON format:
+  // PROMPT EN ESPAÑOL (Adaptado de tu sugerencia para mayor precisión)
+  const prompt = `Analiza esta imagen de un ticket de venta de Coppel. Extrae la siguiente información en formato JSON estricto:
 
-  - invoiceNumber: The unique sales folio.
-    * INSTRUCTION: Look for "Factura No.", "Folio", "Docto", "Ticket" or "Caja".
-    * PATTERN RULE: If you see "1053" followed by digits (e.g., "1053 801190" or "1053-801190"), extract ONLY the last part (e.g. "801190"). Return ONLY the distinct suffix digits.
+  1. invoiceNumber: El número de factura o folio.
+     - INSTRUCCIÓN: Busca "Factura No.", "Folio", "Docto".
+     - REGLA: Si ves "1053" seguido de dígitos (ej. "1053 801190"), extrae SOLO la parte final única (ej. "801190").
 
-  - date: The purchase date.
-    * Return the date EXACTLY as printed on the ticket. 
-    * Format usually looks like "02-Jun-25" or "02/06/2025".
-    * Do not convert it. Just extract the string found near "Fecha:".
+  2. date: La fecha de la compra.
+     - FORMATO DESEADO: YYYY-MM-DD (Ej: 2025-06-02).
+     - NOTA: El ticket suele tener el formato "DD-MMM-YY" (Ej: "02-Jun-25"). Conviértelo tú mismo a numérico si puedes. Si no estás seguro, devuélvelo tal cual aparece.
 
-  - customerName: The customer's full name.
-    * FIND the line starting with "Nombre:".
-    * EXTRACT everything after the label "Nombre:".
-    * If "Nombre:" is not explicitly present, look for the name above "No. de Cliente".
-    * Example: "Nombre: JUAN PEREZ" -> Return "JUAN PEREZ".
+  3. customerName: El nombre del cliente.
+     - INSTRUCCIÓN: Busca explícitamente la línea que empieza con "Nombre:".
+     - Extrae EL TEXTO QUE SIGUE a esa etiqueta.
+     - Ejemplo: "Nombre: ALEJANDRA DE LA CRUZ" -> Extrae "ALEJANDRA DE LA CRUZ".
+     - Ignora etiquetas como "No. de Cliente" o direcciones.
 
-  - items: Detect EVERY SINGLE mobile phone sold in the ticket.
-    * CRITICAL: Tickets often contain MULTIPLE phones. Extract ALL of them.
-    * FILTERING RULES (Strict):
-      1. IGNORE items named "CHIP", "SIM", "RECARGA", "MICA", "FUNDA".
-      2. IGNORE any item with a Base Price of **1.00** or less. These are usually promo chips.
-      3. Only extract actual mobile devices.
-
-    * PRICING ALGORITHM for each phone:
-      1. Find the Base Price on the right.
-      2. Check the lines IMMEDIATELY BELOW for a discount (e.g. "DESCTO P/PAQUETE", "AHORRO", "PROMOCION").
-      3. CRITICAL EXCEPTION: If the discount found is exactly **-1.00**, IGNORE IT. This indicates a "Free Chip" promo and does NOT apply to the phone price.
-      4. Only subtract discounts that are significant (e.g. > 10 pesos).
-      5. Subtract the valid discount from the Base Price to get the Final Price.
-      6. Return the calculated numeric price.
-
-    * BRANDS: Identify the brand for each item.
-      * LOCATION: The brand is often specified on the line BELOW the description, after "TELCEL" or "CEL".
-      * VALID VALUES: Return one of these exact strings if found: "SAMSUNG", "APPLE", "OPPO", "ZTE", "MOTOROLA", "REALME", "VIVO", "XIAOMI", "HONOR", "HUAWEI", "SENWA", "NUBIA".
-      * If the brand is not in this list, return "OTRO".`;
+  4. items: Detecta TODOS los celulares vendidos en el ticket.
+     - IMPORTANTE: Puede haber MÚLTIPLES celulares. Extráelos todos.
+     - EXCLUYE: "CHIP", "SIM", "RECARGA", "MICA", "FUNDA" o ítems de precio <= 1.00.
+     - PRECIO:
+       * Toma el Precio Base.
+       * Resta descuentos explícitos que veas debajo (Ej: "DESCTO P/PAQUETE", "AHORRO").
+       * IGNORA descuentos de "-1.00" (son chips gratis).
+       * Retorna el precio final calculado numérico.
+     - MARCA (brand):
+       * Busca la marca en la descripción o en la línea de abajo (Ej: "TELCEL SAMSUNG", "CEL MOTOROLA").
+       * VALORES VÁLIDOS: "SAMSUNG", "APPLE", "OPPO", "ZTE", "MOTOROLA", "REALME", "VIVO", "XIAOMI", "HONOR", "HUAWEI".
+       * Si no es ninguna, pon "OTRO".`;
 
   const imagePart = {
     inlineData: {
@@ -145,7 +138,6 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
                 type: SchemaType.OBJECT,
                 properties: {
                   invoiceNumber: { type: SchemaType.STRING },
-                  price: { type: SchemaType.NUMBER },
                   date: { type: SchemaType.STRING },
                   customerName: { type: SchemaType.STRING },
                   items: {
@@ -171,24 +163,23 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
             const data = JSON.parse(text);
             console.log(`✅ ÉXITO con Key #${keyIndex + 1} y modelo ${modelName}`, data);
 
-            // CLEAN DATA BEFORE RETURNING
+            // Usamos nuestro helper robusto parseSpanishDate por si la IA falla en la conversión YYYY-MM-DD
+            // Pero le damos prioridad a lo que traiga la IA si ya parece válido.
             const cleanDate = parseSpanishDate(data.date);
 
-            // Name Cleanup: Simpler and safer strategy
+            // Limpieza de nombre robusta (mantenemos tu lógica anterior + la nueva instrucción en español)
             let rawName = (data.customerName || data.customer_name || data.name || '');
-            // Split by "Nombre:" case insensitive and take the second part if exists
-            const splitName = rawName.split(/nombre\s*[:.]/i);
-            if (splitName.length > 1) {
-              rawName = splitName[1]; // Take content after label
-            }
-            // Further clean up trailing noise like "No. de Cliente" or "Direccion"
-            rawName = rawName.replace(/No\.\s*de\s*Cliente.*$/i, '').trim();
-            // Remove any leading special chars
-            const cleanName = rawName.replace(/^[:.\-\s]+/, '').trim();
+
+            // Si la IA incluyó "Nombre:" al principio, lo quitamos
+            // Regex: Busca al inicio (^) variaciones de "Nombre:" con o sin espacios
+            rawName = rawName.replace(/^(nombre|cliente|nom|cli)\s*[:.]?\s*/i, '');
+
+            // Quitamos saltos de línea y espacios extra
+            const cleanName = rawName.replace(/[\r\n]+/g, ' ').trim();
 
             return {
               invoiceNumber: data.invoiceNumber,
-              price: data.price,
+              price: data.price, // Puede venir undefined si no lo pedimos explícitamente en items, pero en schema está
               date: cleanDate,
               items: data.items?.map((item: any) => {
                 let b = Brand.OTRO;
