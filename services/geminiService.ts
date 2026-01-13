@@ -66,44 +66,29 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     console.log(`[DEBUG] Se encontraron ${apiKeys.length} claves API de Gemini.`);
   }
 
+  // Configuramos modelos: Flash 1.5 es el más estable para texto impreso estándar.
   const candidateModels = [
     "gemini-1.5-flash",
     "gemini-2.0-flash-exp",
-    "gemini-1.5-pro",   // PRIORIDAD 3: Respaldo de alta calidad (Solo si fallan los anteriores)
   ];
 
   let lastError: any = null;
   const base64Data = base64Image.split(',')[1] || base64Image;
 
-  // PROMPT EN ESPAÑOL (Adaptado de tu sugerencia para mayor precisión)
-  const prompt = `Analiza esta imagen de un ticket de venta de Coppel. Extrae la siguiente información en formato JSON estricto:
+  // ESTRATEGIA: "EXTRACCIÓN CRUDA"
+  // Pedimos a la IA que nos dé el texto tal cual lo ve, sin intentar convertirlo (que es donde falla).
+  // Nosotros lo procesamos con código (Regex) que es más predecible.
+  const prompt = `Analiza este ticket de Coppel. Extrae los DATOS CRUDOS (Raw Data) tal como aparecen en el papel.
 
-  1. invoiceNumber: El número de factura o folio.
-     - INSTRUCCIÓN: Busca "Factura No.", "Folio", "Docto".
-     - REGLA: Si ves "1053" seguido de dígitos (ej. "1053 801190"), extrae SOLO la parte final única (ej. "801190").
-
-  2. date: La fecha de la compra.
-     - FORMATO DESEADO: YYYY-MM-DD (Ej: 2025-06-02).
-     - NOTA: El ticket suele tener el formato "DD-MMM-YY" (Ej: "02-Jun-25"). Conviértelo tú mismo a numérico si puedes. Si no estás seguro, devuélvelo tal cual aparece.
-
-  3. customerName: El nombre del cliente.
-     - INSTRUCCIÓN: Busca explícitamente la línea que empieza con "Nombre:".
-     - Extrae EL TEXTO QUE SIGUE a esa etiqueta.
-     - Ejemplo: "Nombre: ALEJANDRA DE LA CRUZ" -> Extrae "ALEJANDRA DE LA CRUZ".
-     - Ignora etiquetas como "No. de Cliente" o direcciones.
-
-  4. items: Detecta TODOS los celulares vendidos en el ticket.
-     - IMPORTANTE: Puede haber MÚLTIPLES celulares. Extráelos todos.
-     - EXCLUYE: "CHIP", "SIM", "RECARGA", "MICA", "FUNDA" o ítems de precio <= 1.00.
-     - PRECIO:
-       * Toma el Precio Base.
-       * Resta descuentos explícitos que veas debajo (Ej: "DESCTO P/PAQUETE", "AHORRO").
-       * IGNORA descuentos de "-1.00" (son chips gratis).
-       * Retorna el precio final calculado numérico.
-     - MARCA (brand):
-       * Busca la marca en la descripción o en la línea de abajo (Ej: "TELCEL SAMSUNG", "CEL MOTOROLA").
-       * VALORES VÁLIDOS: "SAMSUNG", "APPLE", "OPPO", "ZTE", "MOTOROLA", "REALME", "VIVO", "XIAOMI", "HONOR", "HUAWEI".
-       * Si no es ninguna, pon "OTRO".`;
+  1. invoiceNumber: El texto que sigue a "Factura No.", "Folio" o "Ticket". (Ej: "1053 753779" o "1053-753779").
+  2. rawDate: Busca la palabra "Fecha:" y extrae todo el texto que esté PREVIAMENTE o DESPUÉS en esa zona. (Ej: "01-Jun-25" o "Fecha: 01-Jun-25").
+  3. rawCustomerName: Busca la línea que contiene "Nombre:" y devuelve LA LÍNEA COMPLETA. (Ej: "Nombre: ALEJANDRA DE LA CRUZ FAJARDO").
+  
+  4. items: Lista de celulares.
+     - Detecta la marca (SAMSUNG, APPLE, MOTOROLA, OPPO, ZTE, XIAOMI, ETC).
+     - Detecta el precio base.
+     - Si hay descuentos abajo, réstalos.
+     - Devuelve items con { brand, price }.`;
 
   const imagePart = {
     inlineData: {
@@ -138,8 +123,8 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
                 type: SchemaType.OBJECT,
                 properties: {
                   invoiceNumber: { type: SchemaType.STRING },
-                  date: { type: SchemaType.STRING },
-                  customerName: { type: SchemaType.STRING },
+                  rawDate: { type: SchemaType.STRING },         // Solicitamos texto crudo
+                  rawCustomerName: { type: SchemaType.STRING }, // Solicitamos texto crudo
                   items: {
                     type: SchemaType.ARRAY,
                     items: {
@@ -161,36 +146,52 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
 
           if (text) {
             const data = JSON.parse(text);
-            console.log(`✅ ÉXITO con Key #${keyIndex + 1} y modelo ${modelName}`, data);
+            console.log(`✅ ÉXITO RAW con Key #${keyIndex + 1}`, data);
 
-            // Usamos nuestro helper robusto parseSpanishDate por si la IA falla en la conversión YYYY-MM-DD
-            // Pero le damos prioridad a lo que traiga la IA si ya parece válido.
-            const cleanDate = parseSpanishDate(data.date);
+            // A) PROCESAMIENTO ROBUSTO DE FECHA (Desde rawDate)
+            // Buscamos patrones como "01-Jun-25" o "01/06/2025" dentro del texto sucio
+            let finalDate = undefined;
+            if (data.rawDate) {
+              // Regex para DD-MMM-YY (ej: 01-Jun-25)
+              const complexDateMatch = data.rawDate.match(/(\d{1,2})[-/ ]([A-Za-z]{3})[-/ ](\d{2,4})/);
+              if (complexDateMatch) {
+                finalDate = parseSpanishDate(complexDateMatch[0]); // Usamos el helper con el match limpio
+              } else {
+                // Regex para DD/MM/YYYY
+                const simpleDateMatch = data.rawDate.match(/(\d{1,2})[-/ ](\d{1,2})[-/ ](\d{2,4})/);
+                if (simpleDateMatch) {
+                  // Reconstruir a YYYY-MM-DD
+                  let [_, d, m, y] = simpleDateMatch;
+                  if (y.length === 2) y = '20' + y;
+                  finalDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                }
+              }
+            }
 
-            // Limpieza de nombre robusta (mantenemos tu lógica anterior + la nueva instrucción en español)
-            let rawName = (data.customerName || data.customer_name || data.name || '');
-
-            // Si la IA incluyó "Nombre:" al principio, lo quitamos
-            // Regex: Busca al inicio (^) variaciones de "Nombre:" con o sin espacios
-            rawName = rawName.replace(/^(nombre|cliente|nom|cli)\s*[:.]?\s*/i, '');
-
-            // Quitamos saltos de línea y espacios extra
-            const cleanName = rawName.replace(/[\r\n]+/g, ' ').trim();
+            // B) PROCESAMIENTO ROBUSTO DE NOMBRE (Desde rawCustomerName)
+            // Quitamos "Nombre:", puntaución, saltos de línea
+            let finalName = '';
+            if (data.rawCustomerName) {
+              finalName = data.rawCustomerName
+                .replace(/[\r\n]+/g, ' ')
+                .replace(/^.*nombre\s*[:.]?\s*/i, '') // Borra todo hasta "Nombre:"
+                .replace(/\s*No\.\s*de\s*Cliente.*$/i, '') // Borra si se coló "No. de Cliente"
+                .trim();
+            }
 
             return {
               invoiceNumber: data.invoiceNumber,
-              price: data.price, // Puede venir undefined si no lo pedimos explícitamente en items, pero en schema está
-              date: cleanDate,
+              price: 0, // No usamos el total global
+              date: finalDate, // Ahora sí es YYYY-MM-DD o undefined
               items: data.items?.map((item: any) => {
                 let b = Brand.OTRO;
                 const normalizedBrand = item.brand ? item.brand.toString().toUpperCase().trim() : '';
-
                 if (Object.values(Brand).includes(normalizedBrand as Brand)) {
                   b = normalizedBrand as Brand;
                 }
                 return { brand: b, price: item.price };
               }),
-              customerName: cleanName
+              customerName: finalName
             };
           }
           // Si llegamos aquí con éxito, salimos del bucle de intentos (return arriba ya lo hizo)
