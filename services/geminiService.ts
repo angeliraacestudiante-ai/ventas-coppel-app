@@ -50,26 +50,22 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     throw new Error("Faltan las API Keys de Gemini.");
   }
 
-  // Configuramos modelos: Solo versiones estables y potentes
+  // Configuramos modelos: Flash 1.5 es generalmente robusto.
   const candidateModels = [
-    "gemini-1.5-flash-latest", // Rápido y barato
-    "gemini-1.5-pro-latest",   // Más potente si el flash falla
+    "gemini-1.5-flash",
   ];
 
   const base64Data = base64Image.split(',')[1] || base64Image;
 
-  // ESTRATEGIA: "EXTRACCIÓN CRUDA"
-  const prompt = `Analiza este ticket de Coppel. Extrae los DATOS CRUDOS (Raw Data) tal como aparecen en el papel.
-
-  1. invoiceNumber: El texto que sigue a "Factura No.", "Folio" o "Ticket". (Ej: "1053 753779" o "1053-753779").
-  2. rawDate: Busca la palabra "Fecha:" y extrae todo el texto que esté A SU LADO. (Ej: "01-Jun-25").
-  3. rawCustomerName: Busca la línea que contiene "Nombre:" y devuelve LA LÍNEA COMPLETA. (Ej: "Nombre: ALEJANDRA DE LA CRUZ FAJARDO").
-  
-  4. items: Lista de celulares detectados.
-     - brand: MARCA (SAMSUNG, APPLE, MOTOROLA, ETC).
-     - price: PRECIO FINAL (Base - Descuentos).
-     - Importante: Ignora items de precio <= 1.00 (chips).
-     - Devuelve un array de objetos { brand, price }.`;
+  // PROMPT BASADO EN EL SNIPPET DEL USUARIO (Adaptado para múltiples items)
+  const prompt = `Analiza esta imagen de un ticket de compra o factura. Extrae la siguiente información en formato JSON estricto:
+            
+  1. invoiceNumber: El número de folio, factura o ticket. Busca etiquetas como "Folio", "Doc", "Ticket", "Factura". Si ves "1053" seguido de números, toma solo la parte final única.
+  2. date: La fecha de la transacción. Busca "Fecha". Intenta devolverla en formato YYYY-MM-DD si es posible, o tal cual aparece (ej. DD-MMM-YY).
+  3. customerName: El nombre del cliente o razón social receptora. Busca etiquetas como "Cliente", "Receptor", "Facturar a", "Nombre". Si no aparece explícitamente, intenta inferirlo del contexto superior.
+  4. items: Detecta TODOS los dispositivos móviles (celulares) en el ticket.
+      - brand: MARCA (ej: SAMSUNG, APPLE, MOTOROLA, XIAOMI, OPPO, ZTE, HONOR, HUAWEI). Si no detectas marca, usa 'OTRO'.
+      - price: El precio final del equipo (base menos descuentos si aplican). Ignora items baratos (chips/recargas).`;
 
   const imagePart = {
     inlineData: {
@@ -78,142 +74,74 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     },
   };
 
-  // Intentar con rotación de claves y modelos
+  // Rotación de Claves API
   for (const [keyIndex, currentApiKey] of apiKeys.entries()) {
+    console.log(`🔄 Intentando con API Key #${keyIndex + 1}...`);
     const genAI = new GoogleGenerativeAI(currentApiKey);
 
     for (const modelName of candidateModels) {
-      // 2 Intentos por modelo
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          console.log(`🤖 IA: Usando Key #${keyIndex + 1} | Modelo: ${modelName} | Intento: ${attempt + 1} `);
-
-          const model = genAI.getGenerativeModel({
-            model: modelName,
-            generationConfig: {
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: SchemaType.OBJECT,
-                properties: {
-                  invoiceNumber: { type: SchemaType.STRING },
-                  rawDate: { type: SchemaType.STRING },
-                  rawCustomerName: { type: SchemaType.STRING },
+      try {
+        console.log(`  ➡️ Modelo: ${modelName}`);
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: SchemaType.OBJECT,
+              properties: {
+                invoiceNumber: { type: SchemaType.STRING },
+                date: { type: SchemaType.STRING },
+                customerName: { type: SchemaType.STRING },
+                items: {
+                  type: SchemaType.ARRAY,
                   items: {
-                    type: SchemaType.ARRAY,
-                    items: {
-                      type: SchemaType.OBJECT,
-                      properties: {
-                        brand: { type: SchemaType.STRING },
-                        price: { type: SchemaType.NUMBER }
-                      }
+                    type: SchemaType.OBJECT,
+                    properties: {
+                      brand: { type: SchemaType.STRING },
+                      price: { type: SchemaType.NUMBER }
                     }
                   }
                 }
               }
             }
-          });
-
-          const result = await model.generateContent([prompt, imagePart]);
-          const response = await result.response;
-          let text = response.text();
-
-          if (text) {
-            // LIMPIEZA JSON: Encontrar el primer '{' y el último '}'
-            const firstBrace = text.indexOf('{');
-            const lastBrace = text.lastIndexOf('}');
-            if (firstBrace !== -1 && lastBrace !== -1) {
-              text = text.substring(firstBrace, lastBrace + 1);
-            }
-
-            const data = JSON.parse(text);
-            console.log(`✅ ÉXITO IA: `, data);
-
-            // A) Fecha
-            let finalDate = undefined;
-            if (data.rawDate) {
-              const complexDateMatch = data.rawDate.match(/(\d{1,2})[-/ ]([A-Za-z]{3})[-/ ](\d{2,4})/);
-              if (complexDateMatch) {
-                finalDate = parseSpanishDate(complexDateMatch[0]);
-              } else {
-                const simpleDateMatch = data.rawDate.match(/(\d{1,2})[-/ ](\d{1,2})[-/ ](\d{2,4})/);
-                if (simpleDateMatch) {
-                  let [_, d, m, y] = simpleDateMatch;
-                  if (y.length === 2) y = '20' + y;
-                  finalDate = `${y} -${m.padStart(2, '0')} -${d.padStart(2, '0')} `;
-                }
-              }
-            }
-
-            // B) Nombre
-            let finalName = '';
-            if (data.rawCustomerName) {
-              finalName = data.rawCustomerName
-                .replace(/[\r\n]+/g, ' ')
-                .replace(/^.*nombre\s*[:.]?\s*/i, '')
-                .replace(/\s*No\.\s*de\s*Cliente.*$/i, '')
-                .trim();
-            }
-
-            return {
-              invoiceNumber: data.invoiceNumber,
-              price: 0,
-              date: finalDate,
-              items: data.items?.map((item: any) => {
-                let b = Brand.OTRO;
-                const normalizedBrand = item.brand ? item.brand.toString().toUpperCase().trim() : '';
-                if (Object.values(Brand).includes(normalizedBrand as Brand)) {
-                  b = normalizedBrand as Brand;
-                }
-                return { brand: b, price: item.price };
-              }),
-              customerName: finalName
-            };
           }
+        });
+
+        const result = await model.generateContent([prompt, imagePart]);
+        const response = await result.response;
+        const text = response.text();
+
+        if (text) {
+          const data = JSON.parse(text);
+          console.log(`✅ ÉXITO con Key #${keyIndex + 1}`, data);
+
+          // LIMPIEZA DE DATOS (Date & Name Cleaners)
+          const cleanDate = parseSpanishDate(data.date);
+
+          let cleanName = (data.customerName || '').trim();
+          // Limpieza Extra: Quitar "Nombre:" si la IA lo incluyó
+          cleanName = cleanName.replace(/^(nombre|cliente|nom|cli)\s*[:.]?\s*/i, '');
+
+          return {
+            invoiceNumber: data.invoiceNumber,
+            price: 0, // No usamos precio global
+            date: cleanDate,
+            customerName: cleanName,
+            items: data.items?.map((item: any) => {
+              let b = Brand.OTRO;
+              const normalizedBrand = item.brand ? item.brand.toString().toUpperCase().trim() : '';
+              if (Object.values(Brand).includes(normalizedBrand as Brand)) {
+                b = normalizedBrand as Brand;
+              }
+              return { brand: b, price: item.price };
+            })
+          };
         } catch (error: any) {
+          console.error("Error en intento Gemini:", error);
         }
       }
-
-      console.warn(`  ⚠️ Falló ${modelName} con Key #${keyIndex + 1}: `, error.message);
-      lastError = error;
-
-      // Si es API Key inválida
-      if (msg.includes("API key")) {
-        attemptLogs.push(`Key #${keyIndex + 1}: ❌ Key Inválida`);
-        keyFailed = true;
-        break; // Salir del bucle de intentos y cambiar llave
-      }
-
-      // Otros errores (ej. modelo no encontrado o error interno de Google)
-      // No hacemos retries, probamos el siguiente modelo
-      if (modelName === candidateModels[candidateModels.length - 1] && attempt === MAX_RETRIES - 1) {
-        attemptLogs.push(`Key #${keyIndex + 1}: ⚠️ Error técnico(${msg.slice(0, 20)}...)`);
-      }
-
-      // Si es un error distinto a 429, salimos del retry loop y dejamos que el loop de modelos continúe
-      break;
-    }
-  }
-}
   }
 
-// --- FALLBACK: INTENTAR CON GROQ (Llama 3.2 Vision) --
-console.warn("⚠️ Todos los intentos de Gemini fallaron. Activando protocolo de respaldo (GROQ)...");
-
-try {
-  const groqResult = await analyzeTicketWithGroq(base64Image);
-  if (groqResult) {
-    console.log("🏆 RESCATADO POR GROQ!");
-    return groqResult;
-  }
-} catch (groqError: any) {
-  console.error("❌ Falló también el respaldo de Groq:", groqError.message);
-  attemptLogs.push(`GROQ Backup: ❌ Error(${groqError.message})`);
-}
-
-// Si llegamos aquí, fallaron todas (Gemini + Groq)
-console.error("❌ Muerte total del sistema de IA.", lastError);
-
-// Mostrar reporte detallado al usuario
-throw new Error(`FALLO TOTAL(Gemini + Groq): \n\nPosible causa: Faltan las llaves API(API KEYS) en la configuración del servidor.\n\nSi la app está en línea, revisa las "Environment Variables" en Vercel / Netlify.\n\nDetalles técnicos: \n${attemptLogs.join('\n')} `);
-};
+    return null;
+  };
 
