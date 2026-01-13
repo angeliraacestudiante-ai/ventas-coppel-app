@@ -6,6 +6,7 @@ const API_KEYS = [
   import.meta.env.VITE_GEMINI_API_KEY_1,
   import.meta.env.VITE_GEMINI_API_KEY_2,
   import.meta.env.VITE_GEMINI_API_KEY_3,
+  import.meta.env.VITE_GEMINI_API_KEY,
 ].filter(Boolean) as string[];
 
 const parseSpanishDate = (dateStr: string | undefined): string | undefined => {
@@ -50,22 +51,33 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     throw new Error("Faltan las API Keys de Gemini.");
   }
 
-  // Configuramos modelos: Flash 1.5 es generalmente robusto.
+  // Configuramos modelos
   const candidateModels = [
+    "gemini-2.0-flash-exp",
     "gemini-1.5-flash",
   ];
 
   const base64Data = base64Image.split(',')[1] || base64Image;
 
-  // PROMPT BASADO EN EL SNIPPET DEL USUARIO (Adaptado para múltiples items)
-  const prompt = `Analiza esta imagen de un ticket de compra o factura. Extrae la siguiente información en formato JSON estricto:
-            
-  1. invoiceNumber: El número de folio, factura o ticket. Busca etiquetas como "Folio", "Doc", "Ticket", "Factura". Si ves "1053" seguido de números, toma solo la parte final única.
-  2. date: La fecha de la transacción. Busca "Fecha". Intenta devolverla en formato YYYY-MM-DD si es posible, o tal cual aparece (ej. DD-MMM-YY).
-  3. customerName: El nombre del cliente o razón social receptora. Busca etiquetas como "Cliente", "Receptor", "Facturar a", "Nombre". Si no aparece explícitamente, intenta inferirlo del contexto superior.
-  4. items: Detecta TODOS los dispositivos móviles (celulares) en el ticket.
-      - brand: MARCA (ej: SAMSUNG, APPLE, MOTOROLA, XIAOMI, OPPO, ZTE, HONOR, HUAWEI). Si no detectas marca, usa 'OTRO'.
-      - price: El precio final del equipo (base menos descuentos si aplican). Ignora items baratos (chips/recargas).`;
+  // PROMPT SIN SCHEMA STRICT (Permite más flexibilidad para encontrar textos difíciles)
+  const prompt = `Analiza esta imagen de ticket. Tu misión es extraer datos aunque la imagen sea borrosa.
+  Responde ÚNICAMENTE con un objeto JSON válido. No uses Markdown (\`\`\`json).
+
+  Estructura deseada:
+  {
+    "invoiceNumber": "Folio o Ticket",
+    "date": "Fecha encontrada (ej: 12-Dic-2024)",
+    "customerName": "Nombre del cliente detectado",
+    "items": [{ "brand": "Marca", "price": 0 }]
+  }
+
+  Instrucciones de Extracción:
+  1. invoiceNumber: Busca "Folio", "Doc", "Ticket". Si ves "1053" seguido de espacio y números, los números son el folio.
+  2. date: Busca "Fecha:" o patrones de fecha (DD-MMM-YY). Devuelve lo que encuentres TEXTUALMENTE.
+  3. customerName: Busca "Cliente:", "Nombre:" o "Receptor:". Si ves un nombre propio en mayúsculas (ej: "JUAN PEREZ") cerca de la cabecera, úsalo. NO uses "Coppel".
+  4. items: Lista de celulares.
+     - brand: MARCA (SAMSUNG, APPLE, MOTOROLA, XIAOMI, OPPO, HONOR, HUAWEI).
+     - price: Precio numérico.`;
 
   const imagePart = {
     inlineData: {
@@ -82,37 +94,23 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     for (const modelName of candidateModels) {
       try {
         console.log(`  ➡️ Modelo: ${modelName}`);
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: SchemaType.OBJECT,
-              properties: {
-                invoiceNumber: { type: SchemaType.STRING },
-                date: { type: SchemaType.STRING },
-                customerName: { type: SchemaType.STRING },
-                items: {
-                  type: SchemaType.ARRAY,
-                  items: {
-                    type: SchemaType.OBJECT,
-                    properties: {
-                      brand: { type: SchemaType.STRING },
-                      price: { type: SchemaType.NUMBER }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        });
+        // USAMOS EL MODELO SIN SCHEMA CONFIG (Modo Libre)
+        const model = genAI.getGenerativeModel({ model: modelName });
 
         const result = await model.generateContent([prompt, imagePart]);
         const response = await result.response;
         const text = response.text();
 
         if (text) {
-          const data = JSON.parse(text);
+          // SANITIZACIÓN: Quitar ```json y ``` sila IA los pone
+          let cleanText = text;
+          const firstBrace = cleanText.indexOf('{');
+          const lastBrace = cleanText.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1) {
+            cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+          }
+
+          const data = JSON.parse(cleanText);
           console.log(`✅ ÉXITO con Key #${keyIndex + 1}`, data);
 
           // LIMPIEZA DE DATOS (Date & Name Cleaners)
@@ -136,12 +134,13 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
               return { brand: b, price: item.price };
             })
           };
-        } catch (error: any) {
-          console.error("Error en intento Gemini:", error);
         }
+      } catch (error: any) {
+        console.error("Error en intento Gemini:", error);
       }
+    }
   }
 
-    return null;
-  };
+  return null;
+};
 
