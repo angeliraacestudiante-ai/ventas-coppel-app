@@ -337,6 +337,80 @@ create policy "Authenticated users can do everything on warranties" on public.wa
     return () => clearInterval(intervalId);
   }, [session]);
 
+  // --- AUTOMATIC CLOSE LOGIC (9 PM) ---
+  useEffect(() => {
+    if (!session || sales.length === 0) return;
+
+    const checkAutoClose = async () => {
+      const now = new Date();
+      // Si son las 9 PM (21) o más
+      if (now.getHours() >= 21) {
+        // Construir string de hoy YYYY-MM-DD
+        const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+
+        // Verificar si YA existe corte hoy
+        const exists = closings.find(c => c.date === todayStr);
+        if (!exists) {
+          console.log("⏰ 9 PM Detectado: Ejecutando corte automático...");
+
+          // CALCULAR DATOS DEL DÍA
+          const todaySales = sales.filter(s => s.date === todayStr);
+          if (todaySales.length === 0) {
+            console.log("No hay ventas hoy, omitiendo corte vacío (o crear corte en ceros si se prefiere).");
+            // Opcional: Crear corte en 0 si es política de la empresa.
+            return;
+          }
+
+          const revenue = todaySales.reduce((sum, s) => sum + s.price, 0);
+
+          // Top Brand logic
+          const counts: Record<string, number> = {};
+          todaySales.forEach(s => { counts[s.brand] = (counts[s.brand] || 0) + 1; });
+          const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+          const topBrand = top ? (top[0] as Brand) : Brand.OTRO;
+
+          // PAYLOAD
+          const newClose = {
+            id: `close-${todayStr}`,
+            date: todayStr,
+            total_sales: todaySales.length,
+            total_revenue: revenue,
+            closed_at: now.toISOString(),
+            top_brand: topBrand
+          };
+
+          try {
+            const { error } = await supabase
+              .from('daily_closings')
+              .upsert(newClose, { onConflict: 'id' });
+
+            if (error) throw error;
+
+            console.log("✅ Corte automático realizado con éxito.");
+            // Actualizar estado local silenciosamente
+            const formattedClose: DailyClose = {
+              id: newClose.id,
+              date: newClose.date,
+              totalSales: newClose.total_sales,
+              totalRevenue: newClose.total_revenue,
+              closedAt: newClose.closed_at,
+              topBrand: newClose.top_brand
+            };
+            setClosings(prev => [formattedClose, ...prev]);
+
+          } catch (err) {
+            console.error("Error en corte automático:", err);
+          }
+        }
+      }
+    };
+
+    const timer = setInterval(checkAutoClose, 60000); // Check every minute
+    checkAutoClose(); // Check on mount/update too
+
+    return () => clearInterval(timer);
+  }, [session, sales, closings]);
+
   // Helper para mostrar errores legibles
   const formatError = (error: any): string => {
     if (typeof error === 'string') return error;
