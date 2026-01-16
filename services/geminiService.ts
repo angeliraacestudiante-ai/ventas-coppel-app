@@ -60,7 +60,7 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   const base64Data = base64Image.split(',')[1] || base64Image;
 
   // PROMPT SIN SCHEMA STRICT (Permite más flexibilidad para encontrar textos difíciles)
-  const prompt = `Analiza esta imagen de ticket. Tu misión es extraer datos aunque la imagen sea borrosa.
+  const prompt = `Analiza esta imagen de ticket. Tu misión es extraer datos para un registro de ventas de celulares.
   Responde ÚNICAMENTE con un objeto JSON válido. No uses Markdown (\`\`\`json).
 
   Estructura deseada:
@@ -75,9 +75,15 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
   1. invoiceNumber: Busca "Folio", "Doc", "Ticket". Si ves "1053" seguido de espacio y números, los números son el folio.
   2. date: Busca "Fecha:" o patrones de fecha (DD-MMM-YY). Devuelve lo que encuentres TEXTUALMENTE.
   3. customerName: Busca "Cliente:", "Nombre:" o "Receptor:". Si ves un nombre propio en mayúsculas (ej: "JUAN PEREZ") cerca de la cabecera, úsalo. NO uses "Coppel".
-  4. items: Lista de celulares.
-     - brand: MARCA (SAMSUNG, APPLE, MOTOROLA, XIAOMI, OPPO, HONOR, HUAWEI).
-     - price: Precio numérico.`;
+  4. items: Lista de SOLAMENTE celulares/teléfonos. IGNORA chips, garantías, fundas, tiempo aire u otros accesorios.
+     - brand: MARCA (SAMSUNG, APPLE, MOTOROLA, XIAOMI, OPPO, HONOR, HUAWEI, ZTE, REALME, VIVO, SENWA, NUBIA).
+     - price: El precio FINAL del equipo (con descuento aplicado).
+       CÁLCULO DE PRECIO INTELIGENTE:
+       - 1. Encuentra la línea del celular y su precio base a la derecha (ej: 4,499.00).
+       - 2. Mira INMEDIATAMENTE debajo de esa línea. Si dice "DESCTO PROMOCION", "REBAJA", o similar y hay un valor negativo (ej: -300.00), RESTALO.
+       - 3. El precio final = Precio Base - Descuento. (Ej: 4499 - 300 = 4199).
+       - 4. Si NO hay descuento justo debajo del celular, respeta el precio base.
+       - 5. IMPORTANTE: NO apliques descuentos de OTROS artículos (como chips que dicen "DESCUENTO CHIP"). Solo aplica el descuento si pertenece al bloque del celular.`;
 
   const imagePart = {
     inlineData: {
