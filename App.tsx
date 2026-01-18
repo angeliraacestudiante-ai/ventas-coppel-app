@@ -145,6 +145,10 @@ create policy "Users can delete own sales" on public.sales for delete to authent
   public.is_admin()
 );
 
+-- UPDATE FOR VIEWER ROLE (Run this if you have Viewers)
+-- 1. Create Policy to restrict Insert/Update for Viewers if needed (Optional, UI hides it)
+-- To be strict: You would update the "insert" policies to exclude role = 'viewer'.
+
 -- Permitir editar si eres el creador O si eres admin (NECESARIO PARA NORMALIZAR FACTURAS)
 drop policy if exists "Authenticated users can update sales" on public.sales;
 create policy "Authenticated users can update sales" on public.sales for update to authenticated using (
@@ -988,7 +992,7 @@ create policy "Authenticated users can do everything on warranties" on public.wa
               <div className="flex items-center gap-1.5 mt-0.5">
                 <Shield className={`w-3 h-3 ${userProfile?.role === 'admin' ? 'text-yellow-400' : 'text-slate-500'}`} />
                 <p className="text-slate-500 text-[10px] uppercase font-bold truncate">
-                  {userProfile?.role === 'admin' ? 'Administrador' : 'Vendedor'}
+                  {userProfile?.role === 'admin' ? 'Administrador' : userProfile?.role === 'viewer' ? 'Visualizador' : 'Vendedor'}
                 </p>
               </div>
             </div>
@@ -1033,7 +1037,7 @@ create policy "Authenticated users can do everything on warranties" on public.wa
             <div className="flex items-center gap-3">
               {/* Refresh button removed per user request */}
 
-              {currentView === 'list' && (
+              {currentView === 'list' && userProfile?.role !== 'viewer' && (
                 <button
                   onClick={() => setCurrentView('form')}
                   className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5"
@@ -1100,7 +1104,7 @@ create policy "Authenticated users can do everything on warranties" on public.wa
       </main>
 
       {/* Floating Action Button (Mobile Only for List View) */}
-      {currentView === 'list' && (
+      {currentView === 'list' && userProfile?.role !== 'viewer' && (
         <button
           onClick={() => {
             setSaleToEdit(null);

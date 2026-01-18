@@ -274,19 +274,21 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
             </div>
           </div>
 
-          <button
-            onClick={handlePerformClose}
-            disabled={targetCount === 0}
-            className={`
-              w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold transition-all shadow-lg
-              ${targetCount > 0
-                ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/50 hover:shadow-blue-900/70 hover:-translate-y-0.5'
-                : 'bg-slate-700 text-slate-500 cursor-not-allowed'}
-            `}
-          >
-            <Lock className="w-4 h-4" />
-            Realizar Corte del Día {manualDate ? `(${manualDate})` : ''}
-          </button>
+          {role !== 'viewer' && (
+            <button
+              onClick={handlePerformClose}
+              disabled={targetCount === 0}
+              className={`
+                w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-bold transition-all shadow-lg
+                ${targetCount > 0
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/50 hover:shadow-blue-900/70 hover:-translate-y-0.5'
+                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'}
+              `}
+            >
+              <Lock className="w-4 h-4" />
+              Realizar Corte del Día {manualDate ? `(${manualDate})` : ''}
+            </button>
+          )}
         </div>
       </div>
 

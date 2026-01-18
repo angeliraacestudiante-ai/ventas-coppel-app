@@ -50,7 +50,7 @@ export interface DailyClose {
   topBrand: Brand | 'N/A';
 }
 
-export type UserRole = 'admin' | 'seller';
+export type UserRole = 'admin' | 'seller' | 'viewer';
 
 export interface UserProfile {
   id: string;
