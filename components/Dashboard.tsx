@@ -436,32 +436,111 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
         {/* 1. TODAY'S Brand Distribution (Moved to Top) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col xl:col-span-2 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-            <PartyPopper className="w-32 h-32 text-orange-500 transform rotate-12" />
-          </div>
-          <div className="flex items-start justify-between mb-4 relative z-10 w-full">
-            <div className="flex flex-col">
-              <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0"></div>
-                Distribución Hoy
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium ml-4 mt-0.5">
-                ({todayCount} equipos)
-              </p>
+        {role === 'admin' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col xl:col-span-2 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+              <PartyPopper className="w-32 h-32 text-orange-500 transform rotate-12" />
             </div>
-            <span className="text-[10px] sm:text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full shrink-0 mt-0.5">
-              Tiempo Real
-            </span>
-          </div>
+            <div className="flex items-start justify-between mb-4 relative z-10 w-full">
+              <div className="flex flex-col">
+                <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0"></div>
+                  Distribución Hoy
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium ml-4 mt-0.5">
+                  ({todayCount} equipos)
+                </p>
+              </div>
+              <span className="text-[10px] sm:text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full shrink-0 mt-0.5">
+                Tiempo Real
+              </span>
+            </div>
 
-          {todayCount > 0 ? (
-            <div className="flex flex-col sm:flex-row flex-1 gap-8 items-center relative z-10 bg-white">
-              <div className="w-full sm:w-1/3 h-[200px] shrink-0">
+            {todayCount > 0 ? (
+              <div className="flex flex-col sm:flex-row flex-1 gap-8 items-center relative z-10 bg-white">
+                <div className="w-full sm:w-1/3 h-[200px] shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={brandDataToday}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={75}
+                        paddingAngle={3}
+                        dataKey="value"
+                        labelLine={false}
+                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+                          if (percent < 0.05) return null;
+                          const RADIAN = Math.PI / 180;
+                          const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                          const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                          const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                          return (
+                            <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">
+                              {brandDataToday[index].value}
+                            </text>
+                          );
+                        }}
+                      >
+                        {brandDataToday.map((entry, index) => (
+                          <Cell key={`cell-t-${index}`} fill={entry.color} style={{ outline: 'none' }} stroke="none" />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        formatter={(value: number, name: string, props: any) => [`${value} un.`, props.payload.name]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 w-full">
+                  {[...brandDataToday].sort((a, b) => b.value - a.value).map(item => (
+                    <div key={item.name} className="flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-md transition-all">
+                      <div className="flex items-center gap-3 mb-2">
+                        {item.logoUrl ? (
+                          <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full p-1.5 shadow-sm border border-slate-100 shrink-0">
+                            <img src={item.logoUrl} alt={item.name} className="w-full h-full object-contain" />
+                          </div>
+                        ) : (
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                        )}
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider truncate break-all">{item.name}</span>
+                      </div>
+                      <div className="flex items-end justify-between pl-1">
+                        <span className="text-xl font-extrabold text-slate-800 leading-none">{item.value}</span>
+                        <span className="text-xs font-medium text-slate-400">
+                          {Math.round((item.value / todayCount) * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-200 m-4">
+                <PartyPopper className="w-10 h-10 mb-2 opacity-50" />
+                No hay ventas registradas hoy
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 2. Brand Distribution (Monthly) */}
+        {role === 'admin' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base sm:text-lg font-bold text-slate-800">Marcas (Mes Actual)</h3>
+              <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Por Unidades</span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row flex-1 gap-6 items-center">
+              <div className="w-full sm:w-1/2 h-[200px] shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={brandDataToday}
+                      data={brandData}
                       cx="50%"
                       cy="50%"
                       innerRadius={45}
@@ -470,20 +549,20 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
                       dataKey="value"
                       labelLine={false}
                       label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
-                        if (percent < 0.05) return null;
+                        if (percent < 0.08) return null;
                         const RADIAN = Math.PI / 180;
                         const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
                         const x = cx + radius * Math.cos(-midAngle * RADIAN);
                         const y = cy + radius * Math.sin(-midAngle * RADIAN);
                         return (
                           <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">
-                            {brandDataToday[index].value}
+                            {brandData[index].value}
                           </text>
                         );
                       }}
                     >
-                      {brandDataToday.map((entry, index) => (
-                        <Cell key={`cell-t-${index}`} fill={entry.color} style={{ outline: 'none' }} stroke="none" />
+                      {brandData.map((entry, index) => (
+                        <Cell key={`cell-g-${index}`} fill={entry.color} style={{ outline: 'none' }} stroke="none" />
                       ))}
                     </Pie>
                     <Tooltip
@@ -494,164 +573,91 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, role }) => {
                 </ResponsiveContainer>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 w-full">
-                {[...brandDataToday].sort((a, b) => b.value - a.value).map(item => (
-                  <div key={item.name} className="flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-md transition-all">
-                    <div className="flex items-center gap-3 mb-2">
-                      {item.logoUrl ? (
-                        <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full p-1.5 shadow-sm border border-slate-100 shrink-0">
-                          <img src={item.logoUrl} alt={item.name} className="w-full h-full object-contain" />
-                        </div>
-                      ) : (
-                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                      )}
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider truncate break-all">{item.name}</span>
+              <div className="flex flex-col gap-2 overflow-y-auto max-h-[250px] w-full pr-2 custom-scrollbar">
+                {[...brandData].sort((a, b) => b.value - a.value).map(item => (
+                  <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100/50 hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-sm font-semibold text-slate-700">{item.name}</span>
                     </div>
-                    <div className="flex items-end justify-between pl-1">
-                      <span className="text-xl font-extrabold text-slate-800 leading-none">{item.value}</span>
-                      <span className="text-xs font-medium text-slate-400">
-                        {Math.round((item.value / todayCount) * 100)}%
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">{item.value}</span>
+                      <span className="text-xs text-slate-400 w-9 text-right">
+                        {Math.round((item.value / sales.length) * 100)}%
                       </span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-200 m-4">
-              <PartyPopper className="w-10 h-10 mb-2 opacity-50" />
-              No hay ventas registradas hoy
-            </div>
-          )}
-        </div>
-
-        {/* 2. Brand Distribution (Monthly) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-base sm:text-lg font-bold text-slate-800">Marcas (Mes Actual)</h3>
-            <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Por Unidades</span>
           </div>
-
-          <div className="flex flex-col sm:flex-row flex-1 gap-6 items-center">
-            <div className="w-full sm:w-1/2 h-[200px] shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={brandData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="value"
-                    labelLine={false}
-                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
-                      if (percent < 0.08) return null;
-                      const RADIAN = Math.PI / 180;
-                      const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                      return (
-                        <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">
-                          {brandData[index].value}
-                        </text>
-                      );
-                    }}
-                  >
-                    {brandData.map((entry, index) => (
-                      <Cell key={`cell-g-${index}`} fill={entry.color} style={{ outline: 'none' }} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number, name: string, props: any) => [`${value} un.`, props.payload.name]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="flex flex-col gap-2 overflow-y-auto max-h-[250px] w-full pr-2 custom-scrollbar">
-              {[...brandData].sort((a, b) => b.value - a.value).map(item => (
-                <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100/50 hover:bg-slate-100 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-sm font-semibold text-slate-700">{item.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-900">{item.value}</span>
-                    <span className="text-xs text-slate-400 w-9 text-right">
-                      {Math.round((item.value / sales.length) * 100)}%
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* 2. Brand Revenue (Global Amount) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-base sm:text-lg font-bold text-slate-800">Ingresos por Marca</h3>
-            <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">Por Dinero</span>
-          </div>
-
-          <div className="flex flex-col sm:flex-row flex-1 gap-6 items-center">
-            <div className="w-full sm:w-1/2 h-[200px] shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={brandData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="revenue"
-                    labelLine={false}
-                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
-                      if (percent < 0.1) return null;
-                      const RADIAN = Math.PI / 180;
-                      const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                      return (
-                        <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight="bold">
-                          {brandData[index].value}
-                        </text>
-                      );
-                    }}
-                  >
-                    {brandData.map((entry, index) => (
-                      <Cell key={`cell-r-${index}`} fill={entry.color} style={{ outline: 'none' }} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number, name: string, props: any) => [`$${value.toLocaleString('es-MX')}`, props.payload.name]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+        {role === 'admin' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base sm:text-lg font-bold text-slate-800">Ingresos por Marca</h3>
+              <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">Por Dinero</span>
             </div>
 
-            <div className="flex flex-col gap-2 overflow-y-auto max-h-[250px] w-full pr-2 custom-scrollbar">
-              {[...brandData].sort((a, b) => b.revenue - a.revenue).map(item => (
-                <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100/50 hover:bg-slate-100 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-sm font-semibold text-slate-700">{item.name}</span>
+            <div className="flex flex-col sm:flex-row flex-1 gap-6 items-center">
+              <div className="w-full sm:w-1/2 h-[200px] shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={brandData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={75}
+                      paddingAngle={3}
+                      dataKey="revenue"
+                      labelLine={false}
+                      label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+                        if (percent < 0.1) return null;
+                        const RADIAN = Math.PI / 180;
+                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                        return (
+                          <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight="bold">
+                            {brandData[index].value}
+                          </text>
+                        );
+                      }}
+                    >
+                      {brandData.map((entry, index) => (
+                        <Cell key={`cell-r-${index}`} fill={entry.color} style={{ outline: 'none' }} stroke="none" />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value: number, name: string, props: any) => [`$${value.toLocaleString('es-MX')}`, props.payload.name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="flex flex-col gap-2 overflow-y-auto max-h-[250px] w-full pr-2 custom-scrollbar">
+                {[...brandData].sort((a, b) => b.revenue - a.revenue).map(item => (
+                  <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100/50 hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-sm font-semibold text-slate-700">{item.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">${(item.revenue / 1000).toFixed(1)}k</span>
+                      <span className="text-xs text-slate-400 w-9 text-right">
+                        {Math.round((item.revenue / totalRevenue) * 100)}%
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-900">${(item.revenue / 1000).toFixed(1)}k</span>
-                    <span className="text-xs text-slate-400 w-9 text-right">
-                      {Math.round((item.revenue / totalRevenue) * 100)}%
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
 
 
