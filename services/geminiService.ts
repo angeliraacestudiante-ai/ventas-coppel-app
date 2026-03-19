@@ -51,9 +51,12 @@ export const analyzeTicketImage = async (base64Image: string): Promise<TicketAna
     throw new Error("Faltan las API Keys de Gemini.");
   }
 
-  // Configuramos modelos
+  // Configuramos modelos (De más reciente/potente a más antiguo/estable)
   const candidateModels = [
-    "gemini-2.0-flash-exp",
+    "gemini-3-flash-preview",
+    "gemini-3-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash-latest",
     "gemini-1.5-flash",
   ];
 
