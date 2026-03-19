@@ -358,8 +358,8 @@ create policy "Authenticated users can do everything on warranties" on public.wa
         const hasClosing = closings.some(c => c.date === date);
         if (hasClosing) return false;
 
-        // Si es hoy, solo cerrar si es después de las 9 PM (21h)
-        if (date === todayStr) return hour >= 21;
+        // Si es hoy, solo cerrar si es después de las 7 PM (19h)
+        if (date === todayStr) return hour >= 19;
 
         // Si es un día pasado, cerrar siempre (Recuperación histórica)
         return date < todayStr;
