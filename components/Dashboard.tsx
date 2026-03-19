@@ -214,31 +214,6 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
           </div>
         </div>
       )}
-
-      {/* DAILY CLOSE PENDING ALERT */}
-      {(() => {
-        const h = new Date().getHours();
-        const needsClose = h >= 19; // Después de las 7 PM empezamos a avisar
-        const isClosed = (closings || []).some(c => c.date === todayStr);
-        if (needsClose && !isClosed && todayCount > 0) {
-          return (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl flex items-center justify-between shadow-sm animate-pulse border border-red-200">
-              <div className="flex items-center gap-3">
-                <div className="bg-red-100 p-2 rounded-full">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-red-800">Corte del Día Pendiente</h4>
-                  <p className="text-xs text-red-600">Ya es tarde y aún no has realizado el corte de ventas de hoy.</p>
-                </div>
-              </div>
-              <p className="text-[10px] font-bold text-red-400 uppercase hidden md:block">Acción Requerida</p>
-            </div>
-          );
-        }
-        return null;
-      })()}
-
       {/* GOALS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 

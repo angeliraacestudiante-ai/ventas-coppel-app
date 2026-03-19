@@ -341,76 +341,82 @@ create policy "Authenticated users can do everything on warranties" on public.wa
     return () => clearInterval(intervalId);
   }, [session]);
 
-  // --- AUTOMATIC CLOSE LOGIC (9 PM) ---
+  // --- AUTOMATIC RECOVERY & CLOSE LOGIC ---
   useEffect(() => {
     if (!session || sales.length === 0) return;
 
-    const checkAutoClose = async () => {
+    const runAutomaticClosings = async () => {
       const now = new Date();
-      // Si son las 9 PM (21) o más
-      if (now.getHours() >= 21) {
-        // Construir string de hoy YYYY-MM-DD
-        const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      const hour = now.getHours();
 
-        // Verificar si YA existe corte hoy
-        const exists = closings.find(c => c.date === todayStr);
-        if (!exists) {
-          console.log("⏰ 9 PM Detectado: Ejecutando corte automático...");
+      // 1. Encontrar todos los días con ventas que NO tienen corte (ordenados por fecha)
+      const uniqueSaleDates = Array.from(new Set(sales.map(s => s.date))).sort();
+      
+      const missingDates = uniqueSaleDates.filter(date => {
+        // No tiene corte registrado
+        const hasClosing = closings.some(c => c.date === date);
+        if (hasClosing) return false;
 
-          // CALCULAR DATOS DEL DÍA
-          const todaySales = sales.filter(s => s.date === todayStr);
-          if (todaySales.length === 0) {
-            console.log("No hay ventas hoy, omitiendo corte vacío (o crear corte en ceros si se prefiere).");
-            // Opcional: Crear corte en 0 si es política de la empresa.
-            return;
-          }
+        // Si es hoy, solo cerrar si es después de las 9 PM (21h)
+        if (date === todayStr) return hour >= 21;
 
-          const revenue = todaySales.reduce((sum, s) => sum + s.price, 0);
+        // Si es un día pasado, cerrar siempre (Recuperación histórica)
+        return date < todayStr;
+      });
 
-          // Top Brand logic
+      if (missingDates.length === 0) return;
+
+      console.log(`🔍 Se detectaron ${missingDates.length} días sin corte. Iniciando cierre automático...`);
+
+      for (const date of missingDates) {
+        try {
+          const daySales = sales.filter(s => s.date === date);
+          if (daySales.length === 0) continue;
+
+          const revenue = daySales.reduce((sum, s) => sum + s.price, 0);
+          
           const counts: Record<string, number> = {};
-          todaySales.forEach(s => { counts[s.brand] = (counts[s.brand] || 0) + 1; });
+          daySales.forEach(s => { counts[s.brand] = (counts[s.brand] || 0) + 1; });
           const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
           const topBrand = top ? (top[0] as Brand) : Brand.OTRO;
 
-          // PAYLOAD
           const newClose = {
-            id: `close-${todayStr}`,
-            date: todayStr,
-            total_sales: todaySales.length,
+            id: `close-${date}`,
+            date: date,
+            total_sales: daySales.length,
             total_revenue: revenue,
             closed_at: now.toISOString(),
-            top_brand: topBrand
+            top_brand: topBrand as Brand
           };
 
-          try {
-            const { error } = await supabase
-              .from('daily_closings')
-              .upsert(newClose, { onConflict: 'id' });
+          const { error } = await supabase
+            .from('daily_closings')
+            .upsert(newClose, { onConflict: 'id' });
 
-            if (error) throw error;
+          if (error) throw error;
 
-            console.log("✅ Corte automático realizado con éxito.");
-            // Actualizar estado local silenciosamente
-            const formattedClose: DailyClose = {
-              id: newClose.id,
-              date: newClose.date,
-              totalSales: newClose.total_sales,
-              totalRevenue: newClose.total_revenue,
-              closedAt: newClose.closed_at,
-              topBrand: newClose.top_brand
-            };
-            setClosings(prev => [formattedClose, ...prev]);
+          console.log(`✅ Corte automático realizado para: ${date}`);
+          
+          // Actualización local silenciosa
+          const formattedClose: DailyClose = {
+            id: (newClose as any).id,
+            date: (newClose as any).date,
+            totalSales: (newClose as any).total_sales,
+            totalRevenue: (newClose as any).total_revenue,
+            closedAt: (newClose as any).closed_at,
+            topBrand: (newClose as any).top_brand
+          };
+          setClosings(prev => [formattedClose, ...prev]);
 
-          } catch (err) {
-            console.error("Error en corte automático:", err);
-          }
+        } catch (err) {
+          console.error(`Error en corte automático para ${date}:`, err);
         }
       }
     };
 
-    const timer = setInterval(checkAutoClose, 60000); // Check every minute
-    checkAutoClose(); // Check on mount/update too
+    const timer = setInterval(runAutomaticClosings, 60000); // Revisar cada minuto
+    runAutomaticClosings(); // Ejecutar al cargar
 
     return () => clearInterval(timer);
   }, [session, sales, closings]);
