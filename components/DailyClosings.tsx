@@ -625,7 +625,19 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
                                   <p className="text-[10px] text-slate-500">{close.totalSales} ventas</p>
                                 </div>
                               </div>
-                              <div className="text-right">
+                              <div className="text-right flex flex-col items-end gap-1">
+                                {role === 'admin' && onDeleteClosing && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteClosing(close.id);
+                                    }}
+                                    className="p-1 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded transition-colors mb-0.5"
+                                    title="Eliminar Cierre"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )}
                                 <p className="font-bold text-green-600 text-xs">${close.totalRevenue.toLocaleString('es-MX')}</p>
                                 <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
                                   Neto: ${(close.totalRevenue / 1.16).toLocaleString('es-MX', { maximumFractionDigits: 0 })}
