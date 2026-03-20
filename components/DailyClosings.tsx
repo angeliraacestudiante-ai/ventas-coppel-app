@@ -58,9 +58,8 @@ const DailyClosings: React.FC<DailyClosingsProps> = ({ sales, closings, onCloseD
         return true;
       }
 
-      // 2. Default: Show Current Month only
-      const currentMonthPrefix = new Date().toISOString().slice(0, 7); // YYYY-MM
-      return closeDate.startsWith(currentMonthPrefix);
+      // NO default filter - Show everything (Request: todos los meses)
+      return true;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [closings, dateFilter]);
 

@@ -345,7 +345,7 @@ create policy "Authenticated users can do everything on warranties" on public.wa
   const processingDatesRef = React.useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!session || sales.length === 0) return;
+    if (!session || sales.length === 0 || isLoading) return;
 
     const runAutomaticClosings = async () => {
       const now = new Date();
@@ -439,7 +439,7 @@ create policy "Authenticated users can do everything on warranties" on public.wa
     runAutomaticClosings(); // Ejecutar al cargar
 
     return () => clearInterval(timer);
-  }, [session, sales, closings]);
+  }, [session, sales, closings, isLoading]);
 
   // Helper para mostrar errores legibles
   const formatError = (error: any): string => {
