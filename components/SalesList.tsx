@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
-import { Search, Image as ImageIcon, Calendar, User, Tag, Trash2, Eye, DollarSign, TrendingUp, Smartphone, MoreHorizontal, Edit2, X, Share2 } from 'lucide-react';
+import { Search, Image as ImageIcon, Calendar, User, Tag, Trash2, Eye, DollarSign, TrendingUp, Smartphone, MoreHorizontal, Edit2, X, Share2, Clock } from 'lucide-react';
 import { Sale, Brand } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 
@@ -312,6 +312,21 @@ const SalesList: React.FC<SalesListProps> = ({ sales, onDelete, onEdit, onAdd, r
                         <Tag className="w-3 h-3" /> ${sale.price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
+                    {/* Admin only info */}
+                    {role === 'admin' && (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 pt-2 border-t border-slate-50 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                        <span className="flex items-center gap-1">
+                          <User className="w-3 h-3 text-blue-400" />
+                          Registrado por: <span className="text-slate-600">{sale.createdByEmail || 'N/A'}</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-indigo-400" />
+                          Hora: <span className="text-slate-600">
+                            {sale.createdAt ? new Date(sale.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                          </span>
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

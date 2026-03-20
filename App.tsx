@@ -458,10 +458,16 @@ create policy "Authenticated users can do everything on warranties" on public.wa
     setIsSetupNeeded(false);
 
     try {
-      // 1. Fetch Sales
+      // 1. Fetch Sales (with profiles join for Admin view)
       const { data: salesData, error: salesError } = await supabase
         .from('sales')
-        .select('*')
+        .select(`
+          *,
+          profiles:created_by (
+            email,
+            full_name
+          )
+        `)
         .order('date', { ascending: false });
 
       if (salesError) {
@@ -480,7 +486,9 @@ create policy "Authenticated users can do everything on warranties" on public.wa
         brand: row.brand as Brand,
         date: row.date,
         ticketImage: row.ticket_image,
-        createdBy: row.created_by
+        createdBy: row.created_by,
+        createdAt: row.created_at,
+        createdByEmail: row.profiles?.full_name || row.profiles?.email || 'Sistema'
       }));
 
       setSales(formattedSales);
@@ -578,7 +586,8 @@ create policy "Authenticated users can do everything on warranties" on public.wa
                 brand: payload.new.brand as Brand,
                 date: payload.new.date,
                 ticketImage: payload.new.ticket_image,
-                createdBy: payload.new.created_by
+                createdBy: payload.new.created_by,
+                createdAt: payload.new.created_at
               };
               setSales(prev => [newSale, ...prev]);
             } else if (payload.eventType === 'DELETE') {

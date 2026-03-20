@@ -23,6 +23,8 @@ export interface Sale {
   date: string;
   ticketImage?: string; // Base64 string
   createdBy?: string; // UUID of user
+  createdAt?: string; // ISO Timestamp
+  createdByEmail?: string; // Email or Name for Admin only
 }
 
 export interface BrandConfig {
