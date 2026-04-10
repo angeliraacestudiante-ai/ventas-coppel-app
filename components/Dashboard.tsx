@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, ComposedChart, Line } from 'recharts';
-import { Target, Edit2, Check, TrendingUp, Trophy, PartyPopper, DollarSign, Smartphone, Trash2, AlertTriangle } from 'lucide-react';
+import { Target, Edit2, Check, TrendingUp, Trophy, PartyPopper, DollarSign, Smartphone, Trash2, AlertTriangle, FileDown, Calendar, Calculator } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { Sale, Brand, DailyClose } from '../types';
 import { BRAND_CONFIGS } from '../constants';
 import { supabase } from '../services/supabaseClient';
@@ -52,7 +54,8 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
   const [isEditingDevices, setIsEditingDevices] = useState(false);
   const [tempDevicesGoal, setTempDevicesGoal] = useState(devicesGoal.toString());
 
-  const currentMonthPrefix = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
 
   useEffect(() => {
     const fetchGoals = async () => {
@@ -60,21 +63,26 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
         const { data, error } = await supabase
           .from('monthly_goals')
           .select('*')
-          .eq('month', currentMonthPrefix)
+          .eq('month', selectedMonth)
           .single();
 
         if (data) {
           setMonthlyGoal(data.revenue_goal);
           setDevicesGoal(data.devices_goal);
-        } else if (error && error.code !== 'PGRST116') {
-          console.error("Error fetching goals", error);
+        } else {
+          // Defaults if no goal is set for this month yet
+          setMonthlyGoal(100000);
+          setDevicesGoal(50);
+          if (error && error.code !== 'PGRST116') {
+            console.error("Error fetching goals", error);
+          }
         }
       } catch (err) {
         console.error("Fetch goals error", err);
       }
     };
     fetchGoals();
-  }, [currentMonthPrefix]);
+  }, [selectedMonth]);
 
 
   // --- CALCULATIONS ---
@@ -85,7 +93,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
   // 2. Current Month Totals (For Goals)
   const todayDate = new Date();
 
-  const currentMonthSales = sales.filter(s => s.date.startsWith(currentMonthPrefix));
+  const currentMonthSales = sales.filter(s => s.date.startsWith(selectedMonth));
   const currentMonthRevenue = currentMonthSales.reduce((sum, sale) => sum + sale.price, 0);
   const currentMonthCount = currentMonthSales.length;
   const currentMonthNet = currentMonthRevenue / 1.16;
@@ -120,7 +128,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
 
       // Save to Supabase
       const { error } = await supabase.from('monthly_goals').upsert({
-        month: currentMonthPrefix,
+        month: selectedMonth,
         revenue_goal: val,
         devices_goal: devicesGoal // Keep existing device goal
       }, { onConflict: 'month' });
@@ -137,7 +145,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
 
       // Save to Supabase
       const { error } = await supabase.from('monthly_goals').upsert({
-        month: currentMonthPrefix,
+        month: selectedMonth,
         revenue_goal: monthlyGoal, // Keep existing revenue goal
         devices_goal: val
       }, { onConflict: 'month' });
@@ -148,7 +156,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
 
   // --- CHARTS DATA ---
   const brandData = Object.values(Brand).map(brand => {
-    const brandSales = sales.filter(s => s.brand === brand && s.date.startsWith(currentMonthPrefix));
+    const brandSales = sales.filter(s => s.brand === brand && s.date.startsWith(selectedMonth));
     const revenue = brandSales.reduce((sum, s) => sum + s.price, 0);
     return {
       name: BRAND_CONFIGS[brand].label,
@@ -159,7 +167,6 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
     };
   }).filter(item => item.value > 0);
 
-  const now = new Date();
   const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
   const todayCount = sales.filter(s => s.date === todayStr).length;
 
@@ -186,8 +193,190 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
     };
   });
 
+  const handleDownloadReport = async () => {
+    const reportBtn = document.getElementById('report-download-btn');
+    if (reportBtn) reportBtn.style.display = 'none';
+
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      let currentY = margin;
+
+      // 1. Professional Header
+      pdf.setFillColor(15, 23, 42); // slate-900 (Header)
+      pdf.rect(0, 0, pageWidth, 40, 'F');
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(24);
+      pdf.setTextColor(255, 255, 255);
+      pdf.text('REPORTE DE VENTAS', margin, 25);
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`PERÍODO: ${selectedMonth}`, margin, 33);
+      pdf.text(`TOTAL NETO: $${currentMonthNet.toLocaleString('es-MX')}`, pageWidth - margin - 60, 33);
+      
+      currentY = 50;
+
+      // 2. Summary Stats Section (Text instead of screenshots for better quality)
+      pdf.setTextColor(15, 23, 42);
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Métricas Principales', margin, currentY);
+      currentY += 10;
+      
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      const averageTicket = currentMonthCount > 0 ? currentMonthRevenue / currentMonthCount : 0;
+      
+      // Categorized and Ordered Stats
+      const stats = [
+        `Venta Neta (Sin IVA): $${currentMonthNet.toLocaleString('es-MX')}`,
+        `Equipos Vendidos: ${currentMonthCount} unidades`,
+        `Meta Mensual Venta: $${monthlyGoal.toLocaleString('es-MX')}`,
+        `Meta Mensual Equipos: ${devicesGoal} unidades`,
+        `Cumplimiento Meta: ${revenueProgress.toFixed(1)}%`,
+        `Ticket Promedio: $${averageTicket.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `Venta Bruta (Con IVA): $${currentMonthRevenue.toLocaleString('es-MX')}`,
+        `Marca Líder del Mes: ${[...brandData].sort((a, b) => b.value - a.value)[0]?.name || 'N/A'}`
+      ];
+      
+      // Side-by-side rendering (related items are next to each other)
+      const col1 = [stats[0], stats[2], stats[4], stats[6]]; // Revenue related
+      const col2 = [stats[1], stats[3], stats[5], stats[7]]; // Volume/Efficiency/Trends
+      
+      col1.forEach((stat, i) => {
+        pdf.text(stat, margin, currentY);
+        if (col2[i]) {
+          pdf.text(col2[i], margin + 90, currentY);
+        }
+        currentY += 7;
+      });
+      currentY += 10;
+
+      // Helper to add element as high-quality image
+      const addContainerToPdf = async (elementId: string, title: string) => {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+
+        // --- FIX FOR CUTOFF BRANDS/SCROLL ---
+        // Save original styles
+        const originalStyles = {
+          maxHeight: element.style.maxHeight,
+          overflow: element.style.overflow,
+          width: element.style.width,
+          position: element.style.position,
+          backgroundColor: element.style.backgroundColor
+        };
+
+        // Temporarily expand to full height for capture
+        element.style.maxHeight = 'none';
+        element.style.overflow = 'visible';
+        
+        // Force background for dark cards
+        if (elementId.includes('goal-card')) {
+          element.style.backgroundColor = '#0f172a'; // slate-900
+        } else {
+          element.style.backgroundColor = '#ffffff';
+        }
+        const scrollables = element.querySelectorAll('.overflow-y-auto, .custom-scrollbar');
+        scrollables.forEach(s => {
+          (s as HTMLElement).style.maxHeight = 'none';
+          (s as HTMLElement).style.overflow = 'visible';
+          (s as HTMLElement).style.height = 'auto'; // Force height auto
+        });
+
+        const canvas = await html2canvas(element, {
+          scale: 3, // Even higher quality
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false
+        });
+
+        // Restore original styles
+        element.style.maxHeight = originalStyles.maxHeight;
+        element.style.overflow = originalStyles.overflow;
+        scrollables.forEach(s => {
+          (s as HTMLElement).style.maxHeight = '250px'; // Matching original Dashboard max-h
+          (s as HTMLElement).style.overflow = 'auto';
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = pageWidth - (margin * 2);
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        // Check if we need a new page
+        if (currentY + imgHeight + 15 > pageHeight) {
+          pdf.addPage();
+          currentY = margin + 10;
+        }
+
+        // Draw Section Title
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(12);
+        pdf.setTextColor(71, 85, 105); // slate-600
+        pdf.text(title.toUpperCase(), margin, currentY);
+        currentY += 5;
+
+        // Draw line separator
+        pdf.setDrawColor(226, 232, 240); // slate-200
+        pdf.line(margin, currentY, pageWidth - margin, currentY);
+        currentY += 5;
+
+        pdf.addImage(imgData, 'PNG', margin, currentY, imgWidth, imgHeight);
+        currentY += imgHeight + 15;
+      };
+
+      // Page 1: Goals
+      await addContainerToPdf('revenue-goal-card', 'Cumplimiento de Meta de Ingresos');
+      await addContainerToPdf('devices-goal-card', 'Meta de Equipos (Unidades)');
+
+      // Page 2: Brand Distribution
+      pdf.addPage();
+      currentY = margin + 10;
+      await addContainerToPdf('brand-distribution-monthly-card', 'Distribución de Unidades por Marca');
+
+      // Page 3: Brand Revenue
+      pdf.addPage();
+      currentY = margin + 10;
+      await addContainerToPdf('brand-revenue-monthly-card', 'Ingresos Netos por Marca');
+
+      pdf.save(`Reporte_Ventas_Coppel_${selectedMonth}.pdf`);
+    } catch (error) {
+      console.error("PDF Export Error:", error);
+      alert("Error al generar el PDF. Verifica que las gráficas estén visibles en pantalla.");
+    } finally {
+      if (reportBtn) reportBtn.style.display = 'flex';
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {role === 'admin' && (
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-3">
+            <label htmlFor="month-select" className="text-sm font-bold text-slate-500 uppercase tracking-wider">Período:</label>
+            <input
+              id="month-select"
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
+            />
+          </div>
+          
+          <button
+            id="report-download-btn"
+            onClick={handleDownloadReport}
+            className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg hover:bg-slate-800 transition-all w-full sm:w-auto justify-center"
+          >
+            <FileDown className="w-5 h-5" />
+            Descargar Reporte PDF ({selectedMonth})
+          </button>
+        </div>
+      )}
 
 
       {/* SUCCESS NOTIFICATION BANNER (Unified) */}
@@ -218,7 +407,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* CARD 1: REVENUE GOAL */}
-        <div className="bg-slate-900 rounded-3xl p-6 shadow-xl relative overflow-hidden text-white group flex flex-col justify-between">
+        <div id="revenue-goal-card" className="bg-slate-900 rounded-3xl p-6 shadow-xl relative overflow-hidden text-white group flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600 rounded-full blur-[80px] opacity-20 group-hover:opacity-30 transition-opacity"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-600 rounded-full blur-[80px] opacity-10 group-hover:opacity-20 transition-opacity"></div>
 
@@ -245,11 +434,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
                   <button onClick={handleSaveGoal} className="p-2 bg-blue-600 rounded-lg"><Check className="w-4 h-4" /></button>
                 </div>
               ) : (
-                <div className="flex flex-col">
-                  <span className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
-                    ${currentMonthNet.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </span>
-                  <span className="text-xs text-slate-400">Meta: ${monthlyGoal.toLocaleString('es-MX')}</span>
+                <div className="flex flex-col gap-4">
+                  <span className="text-4xl font-black text-white leading-none" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                     ${currentMonthNet.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                   </span>
+                  <span className="text-xs text-slate-400 font-bold tracking-wide">Meta: ${monthlyGoal.toLocaleString('es-MX')}</span>
                 </div>
               )}
 
@@ -271,7 +460,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
         </div>
 
         {/* CARD 2: DEVICES GOAL */}
-        <div className="bg-slate-900 rounded-3xl p-6 shadow-xl relative overflow-hidden text-white group flex flex-col justify-between">
+        <div id="devices-goal-card" className="bg-slate-900 rounded-3xl p-6 shadow-xl relative overflow-hidden text-white group flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-600 rounded-full blur-[80px] opacity-20 group-hover:opacity-30 transition-opacity"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-600 rounded-full blur-[80px] opacity-10 group-hover:opacity-20 transition-opacity"></div>
 
@@ -298,11 +487,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
                   <button onClick={handleSaveDevicesGoal} className="p-2 bg-emerald-600 rounded-lg"><Check className="w-4 h-4" /></button>
                 </div>
               ) : (
-                <div className="flex flex-col">
-                  <span className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
-                    {currentMonthCount} <span className="text-lg font-medium text-slate-400">unidades</span>
-                  </span>
-                  <span className="text-xs text-slate-400">Meta: {devicesGoal} equipos</span>
+                <div className="flex flex-col gap-4">
+                  <span className="text-4xl font-black text-white leading-none" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                     {currentMonthCount} <span className="text-lg font-medium text-slate-400">unidades</span>
+                   </span>
+                  <span className="text-xs text-slate-400 font-bold tracking-wide">Meta: {devicesGoal} equipos</span>
                 </div>
               )}
 
@@ -381,7 +570,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
       </div>
 
       {/* Stats Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
 
         {/* TODAY Stats */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow relative overflow-hidden">
@@ -431,13 +620,28 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
           </h3>
           <p className="text-xs text-slate-400 mt-1">Mayor volumen de ventas</p>
         </div>
+
+        {/* TICKET PROMEDIO CARD */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute bottom-0 right-0 w-16 h-16 bg-purple-500 rounded-full blur-[40px] opacity-10"></div>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-purple-50 rounded-lg">
+              <Calculator className="w-5 h-5 text-purple-600" />
+            </div>
+            <p className="text-slate-500 text-sm font-bold">Ticket Promedio (Mes)</p>
+          </div>
+          <h3 className="text-2xl font-bold text-slate-800">
+            ${(currentMonthCount > 0 ? (currentMonthRevenue / currentMonthCount) : 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">Venta promedio por equipo</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
         {/* 1. TODAY'S Brand Distribution (Moved to Top) */}
         {role === 'admin' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col xl:col-span-2 relative overflow-hidden">
+          <div id="brand-distribution-today-card" className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col xl:col-span-2 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
               <PartyPopper className="w-32 h-32 text-orange-500 transform rotate-12" />
             </div>
@@ -489,7 +693,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
                       </Pie>
                       <Tooltip
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                        formatter={(value: number, name: string, props: any) => [`${value} un.`, props.payload.name]}
+                        formatter={(value: number, name: string, props: any) => [`${value} unidades`, props.payload.name]}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -529,7 +733,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
 
         {/* 2. Brand Distribution (Monthly) */}
         {role === 'admin' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
+          <div id="brand-distribution-monthly-card" className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base sm:text-lg font-bold text-slate-800">Marcas (Mes Actual)</h3>
               <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Por Unidades</span>
@@ -567,7 +771,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
                     </Pie>
                     <Tooltip
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      formatter={(value: number, name: string, props: any) => [`${value} un.`, props.payload.name]}
+                      formatter={(value: number, name: string, props: any) => [`${value} unidades`, props.payload.name]}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -577,7 +781,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
                 {[...brandData].sort((a, b) => b.value - a.value).map(item => (
                   <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100/50 hover:bg-slate-100 transition-colors">
                     <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0 mt-[1px]" style={{ backgroundColor: item.color }} />
                       <span className="text-sm font-semibold text-slate-700">{item.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -595,7 +799,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
 
         {/* 2. Brand Revenue (Global Amount) */}
         {role === 'admin' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
+          <div id="brand-revenue-monthly-card" className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[350px] flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base sm:text-lg font-bold text-slate-800">Ingresos por Marca</h3>
               <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">Por Dinero</span>
@@ -643,7 +847,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
                 {[...brandData].sort((a, b) => b.revenue - a.revenue).map(item => (
                   <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100/50 hover:bg-slate-100 transition-colors">
                     <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0 mt-[1px]" style={{ backgroundColor: item.color }} />
                       <span className="text-sm font-semibold text-slate-700">{item.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -662,7 +866,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, closings, role }) => {
 
 
         {/* 4. Timeline Bar Chart (Restored) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[400px] xl:col-span-2">
+        <div id="revenue-chart-card" className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 min-h-[400px] xl:col-span-2">
           <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-6">Ingresos (Últimos 7 días)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <ComposedChart data={timelineData}>
